@@ -5,9 +5,18 @@ export function notFound() {
   return Response.json({ error: "not_found" }, { status: 404 });
 }
 
-/** Best-effort caller IP for rate-limiting; falls back to a shared bucket if a proxy doesn't forward one. */
+/**
+ * Best-effort caller identity for rate-limiting.
+ * Uses the first forwarded IP when available. In Next.js 16 standalone that header is set to the
+ * socket remote address, so direct callers are capped per connection. The fallback below is only
+ * reachable in tests/edge where no IP header exists; x-test-caller lets tests simulate distinct
+ * direct callers without a real remote address.
+ */
 export function getClientIp(request: NextRequest): string {
-  return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  if (forwarded) return forwarded;
+  // ponytail: no public NextRequest IP API; fallback is a stable test seam, not a per-request UUID.
+  return `direct:${request.headers.get("x-test-caller") ?? "default"}`;
 }
 
 export function serializeWebhook(webhook: WebhookInfo) {

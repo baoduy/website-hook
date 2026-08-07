@@ -4,14 +4,13 @@ ARG NODE_VERSION=22
 FROM node:${NODE_VERSION}-slim AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
-# --ignore-scripts: better-sqlite3 ships prebuilt binaries for linux/arm64 and linux/x64 and
-# needs no node-gyp compile step; skipping install scripts avoids requiring a Python/build toolchain.
 RUN --mount=type=cache,target=/root/.npm npm ci --ignore-scripts
 
 FROM node:${NODE_VERSION}-slim AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+RUN npx prisma generate
 RUN npm run build
 
 FROM node:${NODE_VERSION}-slim AS runtime
@@ -27,6 +26,10 @@ RUN useradd -m -u 10001 appuser \
 COPY --from=builder --chown=appuser:appuser /app/.next/standalone ./
 COPY --from=builder --chown=appuser:appuser /app/.next/static ./.next/static
 
+# Prisma schema, migrations, and the startup wrapper that provisions the DB before serving.
+COPY --from=builder --chown=appuser:appuser /app/prisma ./prisma
+COPY --from=builder --chown=appuser:appuser /app/scripts ./scripts
+
 USER appuser
 EXPOSE 3000
 
@@ -34,4 +37,4 @@ EXPOSE 3000
 # server is up and routing; any received HTTP response counts as healthy.
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s CMD ["node", "-e", "require('http').get('http://127.0.0.1:3000/00000000-0000-0000-0000-000000000000', (r) => process.exit(r.statusCode ? 0 : 1)).on('error', () => process.exit(1))"]
 
-CMD ["node", "server.js"]
+CMD ["node", "scripts/start.js"]

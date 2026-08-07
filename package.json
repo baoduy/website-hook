@@ -8,27 +8,31 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "postinstall": "prisma generate",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate deploy"
   },
   "dependencies": {
-    "better-sqlite3": "^13.0.3",
+    "@prisma/client": "^6.19.3",
     "next": "16.3.0",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitest/coverage-v8": "^4.1.10",
     "eslint": "^9",
     "eslint-config-next": "16.3.0",
+    "prisma": "^6.19.3",
     "typescript": "^5",
     "vitest": "^4.1.10"
   },
   "allowScripts": {
-    "better-sqlite3@13.0.3": true,
-    "unrs-resolver@1.12.2": true
+    "unrs-resolver@1.12.2": true,
+    "prisma@6.19.3": true,
+    "@prisma/engines@6.19.3": true
   }
 }
