@@ -6,9 +6,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string; requestId: string }> },
 ) {
   const { id, requestId } = await params;
-  if (!getWebhook(id)) return notFound();
+  if (!(await getWebhook(id))) return notFound();
 
-  const captured = getCapturedRequest(id, requestId);
+  const captured = await getCapturedRequest(id, requestId);
   if (!captured) return notFound();
 
   return Response.json(serializeCapturedRequest(captured));

@@ -24,6 +24,16 @@ afterEach(() => {
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
+async function seedLastActivityDaysAgo(id: string, days: number) {
+  const { ensureSchema, getClient } = await import("./lib/prisma");
+  const prisma = getClient();
+  await ensureSchema(prisma);
+  await prisma.webhook.update({
+    where: { id },
+    data: { lastActivityAt: BigInt(Date.now() - days * 24 * 60 * 60 * 1000) },
+  });
+}
+
 describe("register", () => {
   it("does nothing outside the nodejs runtime (e.g. edge) — no sweep is scheduled", async () => {
     process.env.NEXT_RUNTIME = "edge";
@@ -43,18 +53,16 @@ describe("register", () => {
     vi.useFakeTimers();
 
     const db = await import("./lib/db");
-    const webhook = db.createWebhook();
-    db.insertCapturedRequest(webhook.id, { method: "GET", path: "", query: "", headers: {}, body: Buffer.alloc(0), truncated: false });
+    const webhook = await db.createWebhook();
+    await db.insertCapturedRequest(webhook.id, { method: "GET", path: "", query: "", headers: {}, body: Buffer.alloc(0), truncated: false });
     // Seed idle activity from TTL_DAYS + 1 days ago — no request has arrived since, per the scenario.
-    const raw = new (await import("better-sqlite3")).default(dbPath);
-    raw.prepare("UPDATE webhooks SET last_activity_at = ? WHERE id = ?").run(Date.now() - (TTL_DAYS + 1) * 24 * 60 * 60 * 1000, webhook.id);
-    raw.close();
+    await seedLastActivityDaysAgo(webhook.id, TTL_DAYS + 1);
 
     const { register } = await import("./instrumentation");
     await register();
     await vi.advanceTimersByTimeAsync(SWEEP_INTERVAL_MS);
 
-    expect(db.getWebhook(webhook.id)).toBeNull();
+    expect(await db.getWebhook(webhook.id)).toBeNull();
 
     // The capture endpoint must 404 as a consequence of the purge, not require a hit to trigger it.
     const { GET } = await import("./app/[id]/[[...path]]/route");

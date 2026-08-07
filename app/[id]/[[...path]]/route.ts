@@ -8,7 +8,7 @@ type CaptureParams = { params: Promise<{ id: string; path?: string[] }> };
 // Always returns 200 to the caller (spec R4) — a storage failure is logged, never surfaced.
 async function capture(request: NextRequest, { params }: CaptureParams) {
   const { id, path } = await params;
-  if (!getWebhook(id)) return notFound();
+  if (!(await getWebhook(id))) return notFound();
 
   const { body, truncated } = await readBoundedBody(request, MAX_BODY_BYTES);
   const subPath = path && path.length > 0 ? `/${path.join("/")}` : "";
@@ -16,8 +16,8 @@ async function capture(request: NextRequest, { params }: CaptureParams) {
   const headers = Object.fromEntries(request.headers.entries());
 
   try {
-    insertCapturedRequest(id, { method: request.method, path: subPath, query, headers, body, truncated });
-    touchWebhook(id);
+    await insertCapturedRequest(id, { method: request.method, path: subPath, query, headers, body, truncated });
+    await touchWebhook(id);
   } catch (err) {
     console.error(`capture storage failed for webhook ${id}:`, err);
   }

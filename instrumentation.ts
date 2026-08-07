@@ -5,9 +5,9 @@ export async function register() {
 
   // Enforcement itself — reads defensively re-check expiry too, but purge must not depend on a URL being hit again.
   // ponytail: hourly resolution, not exact-to-the-second — fine for a 7-day TTL; shrink the interval if a tighter bound is ever needed.
-  setInterval(() => {
+  setInterval(async () => {
     try {
-      purgeExpiredWebhooks();
+      await purgeExpiredWebhooks();
     } catch (err) {
       console.error("idle webhook sweep failed:", err);
     }

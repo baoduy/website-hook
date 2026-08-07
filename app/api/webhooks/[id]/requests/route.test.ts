@@ -20,9 +20,9 @@ describe("GET /api/webhooks/:id/requests", () => {
   it("lists captured requests newest-first, paginated by cursor", async () => {
     const db = await import("@/lib/db");
     const { GET } = await import("./route");
-    const webhook = db.createWebhook();
+    const webhook = await db.createWebhook();
     for (let i = 0; i < 3; i++) {
-      db.insertCapturedRequest(webhook.id, { method: "GET", path: `/${i}`, query: "", headers: {}, body: Buffer.alloc(0), truncated: false });
+      await db.insertCapturedRequest(webhook.id, { method: "GET", path: `/${i}`, query: "", headers: {}, body: Buffer.alloc(0), truncated: false });
     }
 
     const firstPage = await GET(new NextRequest(`http://localhost/api/webhooks/${webhook.id}/requests?limit=2`), {

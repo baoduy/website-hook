@@ -39,6 +39,10 @@ yarn-error.log*
 # sqlite data (DB_PATH default)
 /data
 
+# Prisma migrations are committed, but ignore any local dev artifacts.
+!prisma/migrations/**/migration.sql
+!prisma/migrations/migration_lock.toml
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

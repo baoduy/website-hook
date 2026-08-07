@@ -1,9 +1,22 @@
 // ponytail: single-instance in-memory limiter, not shared across replicas — move to a shared store (Redis) if this ever runs >1 instance.
 const hits = new Map<string, number[]>();
+let lastEvictedAt = 0;
+const EVICT_INTERVAL_MS = 1000;
 
 /** True if `key` has already made `max` requests within the trailing `windowMs`. Records this request either way. */
 export function isRateLimited(key: string, windowMs: number, max: number): boolean {
   const now = Date.now();
+
+  // ponytail: scan at most once per second to bound memory without blocking the hot path.
+  if (now - lastEvictedAt >= EVICT_INTERVAL_MS) {
+    lastEvictedAt = now;
+    for (const [k, times] of hits) {
+      if (times[times.length - 1] < now - windowMs) {
+        hits.delete(k);
+      }
+    }
+  }
+
   const recent = (hits.get(key) ?? []).filter((t) => now - t < windowMs);
 
   if (recent.length >= max) {
@@ -14,4 +27,15 @@ export function isRateLimited(key: string, windowMs: number, max: number): boole
   recent.push(now);
   hits.set(key, recent);
   return false;
+}
+
+/** @internal test-only — exposes the live entry count so the bounded-memory requirement can be asserted. Not part of the rate-limiting API. */
+export function __mapSizeForTests(): number {
+  return hits.size;
+}
+
+/** @internal test-only — clears limiter state and the eviction clock so a scale test starts from a known empty map. */
+export function __resetForTests(): void {
+  hits.clear();
+  lastEvictedAt = 0;
 }

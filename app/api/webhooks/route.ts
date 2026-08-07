@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "rate_limited" }, { status: 429 });
   }
 
-  const webhook = createWebhook();
+  const webhook = await createWebhook();
   // Built from the request's own Host header, not `nextUrl` — which some deployments rewrite
   // to the server's internal hostname rather than what the caller actually connected to.
   const host = request.headers.get("host") ?? request.nextUrl.host;
