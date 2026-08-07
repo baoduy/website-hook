@@ -44,4 +44,37 @@ describe("POST /api/webhooks", () => {
     expect(limited.status).toBe(429);
     expect(await limited.json()).toEqual({ error: "rate_limited" });
   });
+
+  it("rate-limits a direct caller (no x-forwarded-for) past the per-caller quota", async () => {
+    const { POST } = await import("./route");
+    // A direct caller sends no forwarding headers; the same caller must still be capped at the
+    // creation quota (DRK-213 security §5: the direct-caller fix must not create a new bypass).
+    const req = () => new NextRequest("http://localhost/api/webhooks", { method: "POST", headers: { host: "example.com" } });
+
+    for (let i = 0; i < CREATE_RATE_LIMIT.max; i++) {
+      const res = await POST(req());
+      expect(res.status).toBe(201);
+    }
+
+    const limited = await POST(req());
+    expect(limited.status).toBe(429);
+    expect(await limited.json()).toEqual({ error: "rate_limited" });
+  });
+
+  it("gives direct callers independent quotas — exhausting one direct caller does not block another", async () => {
+    const { POST } = await import("./route");
+    // Two distinct direct callers (no forwarding headers). Caller A exhausts its quota; caller B
+    // — a different connection — must still be able to create (DRK-213 R4 / acceptance scenario).
+    // This requires the route to identify each direct caller by a stable per-connection identity.
+    const directA = () => new NextRequest("http://localhost/api/webhooks", { method: "POST", headers: { host: "example.com", "x-test-caller": "A" } });
+    const directB = () => new NextRequest("http://localhost/api/webhooks", { method: "POST", headers: { host: "example.com", "x-test-caller": "B" } });
+
+    for (let i = 0; i < CREATE_RATE_LIMIT.max; i++) {
+      expect((await POST(directA())).status).toBe(201);
+    }
+    expect((await POST(directA())).status).toBe(429); // A exhausted its own quota
+
+    // B is a different direct caller and must not share A's bucket.
+    expect((await POST(directB())).status).toBe(201);
+  });
 });

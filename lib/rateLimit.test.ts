@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CREATE_RATE_LIMIT } from "./constants";
-import { isRateLimited } from "./rateLimit";
+import { __mapSizeForTests, __resetForTests, isRateLimited } from "./rateLimit";
 
 describe("isRateLimited", () => {
   afterEach(() => {
@@ -51,5 +51,47 @@ describe("isRateLimited", () => {
     }
     expect(isRateLimited(keyA, CREATE_RATE_LIMIT.windowMs, CREATE_RATE_LIMIT.max)).toBe(true);
     expect(isRateLimited(keyB, CREATE_RATE_LIMIT.windowMs, CREATE_RATE_LIMIT.max)).toBe(false);
+  });
+
+  it("bounds memory: 10,000 one-shot stale callers are evicted after the eviction cycle shrinks the map", () => {
+    vi.useFakeTimers();
+    __resetForTests();
+    const windowMs = CREATE_RATE_LIMIT.windowMs;
+
+    // 10,000 distinct callers each make a single request at t=0.
+    for (let i = 0; i < 10_000; i++) {
+      expect(isRateLimited(`caller-${i}`, windowMs, 5)).toBe(false);
+    }
+    expect(__mapSizeForTests()).toBe(10_000);
+
+    // Advance past the window so every caller is stale, then trigger an eviction scan.
+    vi.advanceTimersByTime(windowMs + 2000);
+    expect(isRateLimited("trigger", windowMs, 5)).toBe(false);
+
+    // All 10,000 stale entries were outside the window and removed; only the new entry remains.
+    expect(__mapSizeForTests()).toBe(1);
+  });
+
+  it("bounds memory: active callers survive an eviction scan at 10,000-caller scale", () => {
+    vi.useFakeTimers();
+    __resetForTests();
+    const windowMs = CREATE_RATE_LIMIT.windowMs;
+
+    // An active caller hits the limit at t=0.
+    const active = "active-10k";
+    for (let i = 0; i < 5; i++) expect(isRateLimited(active, windowMs, 5)).toBe(false);
+    expect(isRateLimited(active, windowMs, 5)).toBe(true);
+
+    // 10,000 stale one-shot callers pile up alongside it.
+    for (let i = 0; i < 10_000; i++) {
+      isRateLimited(`stale-${i}`, windowMs, 5);
+    }
+
+    // Advance only past the eviction interval (NOT past the window) and trigger a scan via a fresh call.
+    vi.advanceTimersByTime(2000);
+    isRateLimited("trigger", windowMs, 5);
+
+    // The active caller is still within its window and must remain capped.
+    expect(isRateLimited(active, windowMs, 5)).toBe(true);
   });
 });

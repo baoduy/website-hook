@@ -28,3 +28,14 @@ export function isRateLimited(key: string, windowMs: number, max: number): boole
   hits.set(key, recent);
   return false;
 }
+
+/** @internal test-only — exposes the live entry count so the bounded-memory requirement can be asserted. Not part of the rate-limiting API. */
+export function __mapSizeForTests(): number {
+  return hits.size;
+}
+
+/** @internal test-only — clears limiter state and the eviction clock so a scale test starts from a known empty map. */
+export function __resetForTests(): void {
+  hits.clear();
+  lastEvictedAt = 0;
+}
