@@ -1,35 +1,55 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { CREATE_RATE_LIMIT } from "./constants";
 import { isRateLimited } from "./rateLimit";
 
-// Why: creation is rate-limited 20/min/IP (spec R5) to bound abusive webhook creation.
 describe("isRateLimited", () => {
-  beforeEach(() => vi.useFakeTimers());
-  afterEach(() => vi.useRealTimers());
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
-  it("allows requests up to the limit, then blocks the one that exceeds it", () => {
-    const key = "1.2.3.4";
-    for (let i = 0; i < 3; i++) {
-      expect(isRateLimited(key, 1000, 3)).toBe(false);
+  it("allows requests up to the max within the window, then rejects", () => {
+    const key = "1.1.1.1";
+    for (let i = 0; i < CREATE_RATE_LIMIT.max; i++) {
+      expect(isRateLimited(key, CREATE_RATE_LIMIT.windowMs, CREATE_RATE_LIMIT.max)).toBe(false);
     }
-    expect(isRateLimited(key, 1000, 3)).toBe(true);
+    expect(isRateLimited(key, CREATE_RATE_LIMIT.windowMs, CREATE_RATE_LIMIT.max)).toBe(true);
   });
 
-  it("stops blocking once the window has fully elapsed", () => {
-    const key = "5.6.7.8";
-    for (let i = 0; i < 3; i++) isRateLimited(key, 1000, 3);
-    expect(isRateLimited(key, 1000, 3)).toBe(true);
+  it("evicts stale entries once the window has passed", () => {
+    vi.useFakeTimers();
+    const key = "stale-caller";
+    const windowMs = 1000;
 
+    expect(isRateLimited(key, windowMs, 1)).toBe(false);
+    expect(isRateLimited(key, windowMs, 1)).toBe(true);
+
+    vi.advanceTimersByTime(windowMs + 1);
+    expect(isRateLimited(key, windowMs, 1)).toBe(false);
+  });
+
+  it("keeps active callers limited even after an eviction scan runs", () => {
+    vi.useFakeTimers();
+    const key = "active-caller";
+    const windowMs = 10_000;
+
+    expect(isRateLimited(key, windowMs, 2)).toBe(false);
+    expect(isRateLimited(key, windowMs, 2)).toBe(false);
+
+    // Advance past the eviction interval but not past the rate-limit window.
     vi.advanceTimersByTime(1001);
-
-    expect(isRateLimited(key, 1000, 3)).toBe(false);
+    // Trigger the eviction scan with another key; the active caller must stay capped.
+    isRateLimited("other-caller", windowMs, 1);
+    expect(isRateLimited(key, windowMs, 2)).toBe(true);
   });
 
-  it("tracks each key independently, so one caller can't exhaust another's budget", () => {
-    const busy = "busy-caller";
-    const fresh = "fresh-caller";
-    for (let i = 0; i < 3; i++) isRateLimited(busy, 1000, 3);
-    expect(isRateLimited(busy, 1000, 3)).toBe(true);
+  it("gives distinct keys independent buckets", () => {
+    const keyA = "caller-a";
+    const keyB = "caller-b";
 
-    expect(isRateLimited(fresh, 1000, 3)).toBe(false);
+    for (let i = 0; i < CREATE_RATE_LIMIT.max; i++) {
+      expect(isRateLimited(keyA, CREATE_RATE_LIMIT.windowMs, CREATE_RATE_LIMIT.max)).toBe(false);
+    }
+    expect(isRateLimited(keyA, CREATE_RATE_LIMIT.windowMs, CREATE_RATE_LIMIT.max)).toBe(true);
+    expect(isRateLimited(keyB, CREATE_RATE_LIMIT.windowMs, CREATE_RATE_LIMIT.max)).toBe(false);
   });
 });

@@ -19,8 +19,8 @@ describe("GET /api/webhooks/:id/requests/:requestId", () => {
   it("returns the full captured request — method, headers, and body", async () => {
     const db = await import("@/lib/db");
     const { GET } = await import("./route");
-    const webhook = db.createWebhook();
-    db.insertCapturedRequest(webhook.id, {
+    const webhook = await db.createWebhook();
+    await db.insertCapturedRequest(webhook.id, {
       method: "PUT",
       path: "/sub/path",
       query: "a=b",
@@ -28,7 +28,7 @@ describe("GET /api/webhooks/:id/requests/:requestId", () => {
       body: Buffer.from("payload"),
       truncated: false,
     });
-    const [stored] = db.listCapturedRequests(webhook.id, 1, null).items;
+    const [stored] = (await db.listCapturedRequests(webhook.id, 1, null)).items;
 
     const res = await GET(new Request("http://localhost"), {
       params: Promise.resolve({ id: webhook.id, requestId: stored.id }),
@@ -44,7 +44,7 @@ describe("GET /api/webhooks/:id/requests/:requestId", () => {
   it("404s for an unknown webhook or an unknown request id", async () => {
     const db = await import("@/lib/db");
     const { GET } = await import("./route");
-    const webhook = db.createWebhook();
+    const webhook = await db.createWebhook();
 
     const unknownWebhook = await GET(new Request("http://localhost"), {
       params: Promise.resolve({ id: "unknown", requestId: "x" }),

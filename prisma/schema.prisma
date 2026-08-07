@@ -1,0 +1,33 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DB_URL")
+}
+
+model Webhook {
+  id               String            @id
+  createdAt        BigInt            @map("created_at")
+  lastActivityAt   BigInt            @map("last_activity_at")
+  capturedRequests CapturedRequest[]
+
+  @@map("webhooks")
+}
+
+model CapturedRequest {
+  id        String   @id
+  webhookId String   @map("webhook_id")
+  createdAt BigInt   @map("created_at")
+  method    String
+  path      String
+  query     String
+  headers   String
+  body      Bytes?
+  truncated Boolean
+  webhook   Webhook  @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@index([webhookId])
+  @@map("captured_requests")
+}

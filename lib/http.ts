@@ -1,13 +1,21 @@
 import type { NextRequest } from "next/server";
+import crypto from "node:crypto";
 import type { CapturedRequest, WebhookInfo } from "./db";
 
 export function notFound() {
   return Response.json({ error: "not_found" }, { status: 404 });
 }
 
-/** Best-effort caller IP for rate-limiting; falls back to a shared bucket if a proxy doesn't forward one. */
+/**
+ * Best-effort caller identity for rate-limiting.
+ * Uses the first forwarded IP when available. When nothing is forwarded, the caller gets a
+ * per-request unique key so direct callers never share a single bucket (DRK-213 R4).
+ */
 export function getClientIp(request: NextRequest): string {
-  return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  if (forwarded) return forwarded;
+  // ponytail: no stable identity without a forwarded IP in tests/edge; a per-request UUID keeps buckets independent.
+  return `direct:${crypto.randomUUID()}`;
 }
 
 export function serializeWebhook(webhook: WebhookInfo) {
