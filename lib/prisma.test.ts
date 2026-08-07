@@ -68,4 +68,15 @@ describe("schema provisioning", () => {
     getClient(); // mkdirs the parent directory lazily
     expect(fs.existsSync(nestedDir)).toBe(true);
   });
+
+  it("builds the datasource URL from a relative DB_PATH joined to cwd", async () => {
+    // Covers the non-absolute branch of resolveDbPath; keeps a relative path resolvable against cwd.
+    process.env.DB_PATH = path.relative(process.cwd(), path.join(dir, "rel.db"));
+    const { getClient } = await import("./prisma");
+    const prisma = getClient();
+    expect(prisma).toBeTruthy();
+    // A relative path must still resolve to an absolute, writable file location.
+    const { createWebhook } = await import("./db");
+    expect((await createWebhook()).id).toBeTruthy();
+  });
 });
