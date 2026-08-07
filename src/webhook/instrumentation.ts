@@ -13,3 +13,14 @@ export async function register() {
     }
   }, 60 * 60 * 1000);
 }
+
+/** Cloudflare Workers Cron Trigger entry point — replaces the Node.js setInterval on the edge runtime. */
+export async function scheduled(): Promise<void> {
+  const { purgeExpiredWebhooks } = await import("./lib/db");
+
+  try {
+    await purgeExpiredWebhooks();
+  } catch (err) {
+    console.error("idle webhook sweep failed:", err);
+  }
+}

@@ -6,14 +6,17 @@ import path from "node:path";
 import { CREATE_RATE_LIMIT, TTL_DAYS } from "@/lib/constants";
 
 let dir: string;
+let originalDisableRateLimit: string | undefined;
 
 beforeEach(() => {
   vi.resetModules();
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "webhook-route-"));
   process.env.DB_PATH = path.join(dir, "webhook.db");
+  originalDisableRateLimit = process.env.DISABLE_RATE_LIMIT;
 });
 
 afterEach(() => {
+  process.env.DISABLE_RATE_LIMIT = originalDisableRateLimit;
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
@@ -59,6 +62,32 @@ describe("POST /api/webhooks", () => {
     const limited = await POST(req());
     expect(limited.status).toBe(429);
     expect(await limited.json()).toEqual({ error: "rate_limited" });
+  });
+
+  it("honours DISABLE_RATE_LIMIT=true and bypasses the creation cap", async () => {
+    process.env.DISABLE_RATE_LIMIT = "true";
+
+    const { POST } = await import("./route");
+    const req = () => new NextRequest("http://localhost/api/webhooks", { method: "POST", headers: { host: "example.com" } });
+
+    for (let i = 0; i < CREATE_RATE_LIMIT.max + 5; i++) {
+      const res = await POST(req());
+      expect(res.status).toBe(201);
+    }
+  });
+
+  it("treats DISABLE_RATE_LIMIT=false as enabled", async () => {
+    process.env.DISABLE_RATE_LIMIT = "false";
+
+    const { POST } = await import("./route");
+    const req = () => new NextRequest("http://localhost/api/webhooks", { method: "POST", headers: { host: "example.com" } });
+
+    for (let i = 0; i < CREATE_RATE_LIMIT.max; i++) {
+      expect((await POST(req())).status).toBe(201);
+    }
+
+    const limited = await POST(req());
+    expect(limited.status).toBe(429);
   });
 
   it("gives direct callers independent quotas — exhausting one direct caller does not block another", async () => {

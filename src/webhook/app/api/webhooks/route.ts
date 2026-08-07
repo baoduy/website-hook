@@ -1,12 +1,12 @@
 import type { NextRequest } from "next/server";
-import { CREATE_RATE_LIMIT } from "@/lib/constants";
+import { CREATE_RATE_LIMIT, isRateLimitDisabled } from "@/lib/constants";
 import { createWebhook } from "@/lib/db";
 import { getClientIp } from "@/lib/http";
 import { isRateLimited } from "@/lib/rateLimit";
 
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
-  if (isRateLimited(ip, CREATE_RATE_LIMIT.windowMs, CREATE_RATE_LIMIT.max)) {
+  if (!isRateLimitDisabled() && isRateLimited(ip, CREATE_RATE_LIMIT.windowMs, CREATE_RATE_LIMIT.max)) {
     return Response.json({ error: "rate_limited" }, { status: 429 });
   }
 

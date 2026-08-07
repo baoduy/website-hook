@@ -91,3 +91,29 @@ describe("register", () => {
     consoleError.mockRestore();
   });
 });
+
+describe("scheduled", () => {
+  it("purges idle webhooks when the Workers Cron Trigger fires", async () => {
+    const db = await import("./lib/db");
+    const purgeSpy = vi.spyOn(db, "purgeExpiredWebhooks").mockResolvedValue(0);
+
+    const { scheduled } = await import("./instrumentation");
+    await scheduled();
+
+    expect(purgeSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("logs and survives a sweep failure instead of crashing the trigger", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const db = await import("./lib/db");
+    vi.spyOn(db, "purgeExpiredWebhooks").mockImplementation(() => {
+      throw new Error("d1 error");
+    });
+
+    const { scheduled } = await import("./instrumentation");
+    await expect(scheduled()).resolves.not.toThrow();
+
+    expect(consoleError).toHaveBeenCalledWith("idle webhook sweep failed:", expect.any(Error));
+    consoleError.mockRestore();
+  });
+});
