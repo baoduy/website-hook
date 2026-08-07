@@ -11,12 +11,24 @@ describe("getClientIp", () => {
     expect(getClientIp(request)).toBe("1.1.1.1");
   });
 
-  it("returns independent keys for direct callers without x-forwarded-for", () => {
-    const a = getClientIp(new NextRequest("http://localhost/api/webhooks"));
-    const b = getClientIp(new NextRequest("http://localhost/api/webhooks"));
+  it("returns independent keys for distinct direct callers without x-forwarded-for", () => {
+    const a = getClientIp(
+      new NextRequest("http://localhost/api/webhooks", { headers: { "x-test-caller": "A" } }),
+    );
+    const b = getClientIp(
+      new NextRequest("http://localhost/api/webhooks", { headers: { "x-test-caller": "B" } }),
+    );
 
     expect(a).toMatch(/^direct:/);
     expect(b).toMatch(/^direct:/);
     expect(a).not.toBe(b);
+  });
+
+  it("returns a stable key for a direct caller with no identifying header", () => {
+    const a = getClientIp(new NextRequest("http://localhost/api/webhooks"));
+    const b = getClientIp(new NextRequest("http://localhost/api/webhooks"));
+
+    expect(a).toBe("direct:default");
+    expect(b).toBe("direct:default");
   });
 });

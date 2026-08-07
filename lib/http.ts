@@ -1,5 +1,4 @@
 import type { NextRequest } from "next/server";
-import crypto from "node:crypto";
 import type { CapturedRequest, WebhookInfo } from "./db";
 
 export function notFound() {
@@ -8,14 +7,16 @@ export function notFound() {
 
 /**
  * Best-effort caller identity for rate-limiting.
- * Uses the first forwarded IP when available. When nothing is forwarded, the caller gets a
- * per-request unique key so direct callers never share a single bucket (DRK-213 R4).
+ * Uses the first forwarded IP when available. In Next.js 16 standalone that header is set to the
+ * socket remote address, so direct callers are capped per connection. The fallback below is only
+ * reachable in tests/edge where no IP header exists; x-test-caller lets tests simulate distinct
+ * direct callers without a real remote address.
  */
 export function getClientIp(request: NextRequest): string {
   const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
   if (forwarded) return forwarded;
-  // ponytail: no stable identity without a forwarded IP in tests/edge; a per-request UUID keeps buckets independent.
-  return `direct:${crypto.randomUUID()}`;
+  // ponytail: no public NextRequest IP API; fallback is a stable test seam, not a per-request UUID.
+  return `direct:${request.headers.get("x-test-caller") ?? "default"}`;
 }
 
 export function serializeWebhook(webhook: WebhookInfo) {
