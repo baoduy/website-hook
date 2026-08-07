@@ -17,8 +17,15 @@
 /.next/
 /out/
 
+# Cloudflare / OpenNext build artifacts
+/.open-next/
+/.wrangler/
+
 # production
 /build
+
+# Generated OpenAPI spec served as a static asset.
+/public/openapi.json
 
 # misc
 .DS_Store
