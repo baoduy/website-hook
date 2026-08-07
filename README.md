@@ -5,6 +5,15 @@ external system at its unique URL, and inspect every request it sends — method
 query, headers, and body — with no UI and no accounts. Idle webhooks purge themselves
 after 7 days.
 
+## Repository layout
+
+| Path | Description |
+|------|-------------|
+| `src/webhook/` | Next.js webhook application, Dockerfile, and Node tests |
+| `src/TestContainer.Webhook/` | `DKNet.Tests.WebsiteHook` — Testcontainers module for the container image |
+| `src/TestContainer.Webhook.Tests/` | xUnit tests for the Testcontainers module |
+| `.github/workflows/publish.yml` | Publishes the `ghcr.io/baoduy/website-hook` container image |
+
 ## API
 
 ```
@@ -32,6 +41,7 @@ GET    /api/webhooks/:id/requests/:requestId         → 200 { id, method, path,
 ## Running locally
 
 ```bash
+cd src/webhook
 npm install
 npm run dev
 ```
@@ -39,6 +49,46 @@ npm run dev
 ## Container
 
 ```bash
-docker build -t website-hook .
+docker build -t website-hook src/webhook
 docker run -p 3000:3000 -v website-hook-data:/data website-hook
 ```
+
+## Testcontainers module
+
+The `DKNet.Tests.WebsiteHook` NuGet package wraps the website-hook image in a
+[Testcontainers](https://testcontainers.com/) module so .NET tests can spin up a real
+instance.
+
+```bash
+cd src/TestContainer.Webhook
+dotnet pack
+```
+
+### Usage
+
+```csharp
+var container = new WebsiteHookBuilder()
+    .WithImage("ghcr.io/baoduy/website-hook:latest")
+    .Build();
+
+await container.StartAsync();
+
+var uri = container.GetServiceUri();
+using var client = new HttpClient();
+var response = await client.GetAsync(uri);
+
+await container.DisposeAsync();
+```
+
+### Customization
+
+```csharp
+var container = new WebsiteHookBuilder()
+    .WithImage("ghcr.io/baoduy/website-hook:latest")
+    .WithPortBinding(8080, 3000)
+    .WithEnvironment("DB_PATH", "/data/webhook.db")
+    .WithLabel("test", "example")
+    .Build();
+```
+
+See `src/TestContainer.Webhook/README.md` for the full API and customization options.
