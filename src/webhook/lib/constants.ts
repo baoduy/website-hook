@@ -4,6 +4,13 @@ export const TTL_DAYS = 7;
 export const MAX_REQUESTS_PER_WEBHOOK = 1000;
 export const CREATE_RATE_LIMIT = { windowMs: 60_000, max: 20 };
 
+// Inspector UI limits. The cap below is a browser-side guardrail on the remembered list only —
+// the service itself imposes no per-browser webhook quota.
+export const MAX_REMEMBERED_WEBHOOKS = 5;
+export const POLL_INTERVAL_MS = 4000;
+export const EXPIRY_WARNING_MS = 6 * 60 * 60 * 1000;
+export const STORAGE_KEY = "website-hook:webhooks";
+
 /** Deployment-wide kill-switch for the webhook-creation rate limit. Only truthy strings disable it. */
 export function isRateLimitDisabled(): boolean {
   const value = process.env.DISABLE_RATE_LIMIT;
