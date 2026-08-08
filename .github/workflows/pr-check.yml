@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  build-webhook:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -25,3 +25,22 @@ jobs:
       - run: npm ci
 
       - run: npm run build:cf
+
+  build-dotnet:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/TestContainer.Webhook
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+          dotnet-quality: "preview"
+
+      - run: dotnet restore
+
+      - run: dotnet build --configuration Release --no-restore
+
+      - run: dotnet pack --configuration Release --no-build -o ./nupkg
