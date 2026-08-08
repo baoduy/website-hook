@@ -69,9 +69,13 @@ describe("buildCurl", () => {
       "https://hook.example",
       "wh-1",
     );
-    // Every embedded single quote is escaped as '\'' and the value stays wrapped in quotes.
-    expect(out).toContain(`'\\''`);
-    expect(out).not.toMatch(/[^']'[^']/);
+    // Every embedded single quote is escaped as '\'' so the hostile value cannot break
+    // out of its shell-quoted argument. Assert the escaped form is present and the raw
+    // unescaped value (the regression shape — quotes interpolated bare, closing the
+    // argument early) is absent. A blanket "no lone quote" guard is unsatisfiable here:
+    // every correctly-quoted argument's opening quote has a non-quote on both sides.
+    expect(out).toContain(`a'\\''b'\\''c<script>alert(1)</script>`);
+    expect(out).not.toContain(`a'b'c<script>alert(1)</script>`);
   });
 
   it("renders a hostile header value and body as inert text inside quotes (no breakout)", () => {
