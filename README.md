@@ -32,6 +32,12 @@ GET    /api/webhooks/:id/requests/:requestId         → 200 { id, method, path,
 - **Errors**: `404 { error: "not_found" }` for any endpoint referencing a missing/expired/
   deleted webhook; `429 { error: "rate_limited" }` when webhook creation exceeds 20/min/IP.
 
+### OpenAPI
+
+- The OpenAPI spec is generated at build time (via `scripts/generate-openapi.mjs`) and served
+  at **`/openapi.json`**.
+- An interactive API reference UI (Scalar) is available at **`/api/reference`**.
+
 ## Configuration
 
 | Env var   | Default              | Notes                                   |
