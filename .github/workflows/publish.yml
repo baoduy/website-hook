@@ -3,6 +3,9 @@ name: Publish container image
 on:
   push:
     branches: [main]
+    paths:
+      - 'src/webhook/**'
+  workflow_dispatch:
 
 permissions:
   contents: write
