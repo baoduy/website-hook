@@ -1,0 +1,14 @@
+services:
+  website-hook:
+    image: ghcr.io/baoduy/website-hook:latest
+    ports:
+      - "3000:3000"
+    environment:
+      DB_PATH: /data/webhook.db
+      # DISABLE_RATE_LIMIT: "true"
+    volumes:
+      - webhook-data:/data
+    restart: unless-stopped
+
+volumes:
+  webhook-data:
