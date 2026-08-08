@@ -5,7 +5,7 @@
   "compatibility_date": "2025-08-07",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": false,
-  "logpush": false,
+  "observability": { "enabled": true },
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
