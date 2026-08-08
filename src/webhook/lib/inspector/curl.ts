@@ -15,7 +15,9 @@ function shellQuote(value: string): string {
 /** The cURL that replays this captured request against its own endpoint. */
 export function buildCurl(request: CapturedRequest, baseUrl: string, webhookId: string): string {
   const url = `${baseUrl}/${webhookId}${request.path}${request.query ? `?${request.query}` : ""}`;
-  const lines = [`curl -X ${shellQuote(request.method)} ${shellQuote(url)}`];
+  // The method comes from the capture route's fixed handler exports, never from caller text — the
+  // contract prints it unquoted. Everything else below is captured data and stays quoted.
+  const lines = [`curl -X ${request.method} ${shellQuote(url)}`];
 
   for (const [name, value] of Object.entries(request.headers)) {
     if (DROPPED_HEADERS.has(name.toLowerCase())) continue;
