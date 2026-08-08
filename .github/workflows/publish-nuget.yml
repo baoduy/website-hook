@@ -3,6 +3,9 @@ name: Publish NuGet package
 on:
   push:
     branches: [main]
+    paths:
+      - 'src/TestContainer.Webhook/**'
+  workflow_dispatch:
 
 permissions:
   contents: read

@@ -3,6 +3,9 @@ name: Deploy to Cloudflare Workers
 on:
   push:
     branches: [main]
+    paths:
+      - 'src/webhook/**'
+  workflow_dispatch:
 
 permissions:
   contents: read
