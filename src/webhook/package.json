@@ -3,8 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "node scripts/generate-openapi.mjs",
     "dev": "next dev",
+    "prebuild": "node scripts/generate-openapi.mjs",
     "build": "next build",
+    "prebuild:cf": "node scripts/generate-openapi.mjs",
+    "build:cf": "opennextjs-cloudflare build",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
@@ -14,7 +18,10 @@
     "prisma:migrate": "prisma migrate deploy"
   },
   "dependencies": {
+    "@opennextjs/cloudflare": "^1.20.0",
+    "@prisma/adapter-d1": "^6.19.0",
     "@prisma/client": "^6.19.3",
+    "@scalar/nextjs-openapi": "^0.3.0",
     "next": "16.3.0",
     "react": "19.2.8",
     "react-dom": "19.2.8"
@@ -28,7 +35,8 @@
     "eslint-config-next": "16.3.0",
     "prisma": "^6.19.3",
     "typescript": "^5",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "wrangler": "^4.0.0"
   },
   "allowScripts": {
     "unrs-resolver@1.12.2": true,
