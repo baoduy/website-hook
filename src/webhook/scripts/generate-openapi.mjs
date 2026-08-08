@@ -23,5 +23,5 @@ const req = { nextUrl: { pathname: "/openapi.json", origin: "http://localhost" }
 const res = await handler.GET(req);
 const spec = await res.json();
 
-fs.mkdirSync("public", { recursive: true });
-fs.writeFileSync("public/openapi.json", JSON.stringify(spec, null, 2));
+fs.mkdirSync("lib", { recursive: true });
+fs.writeFileSync("lib/openapi.json", JSON.stringify(spec, null, 2));

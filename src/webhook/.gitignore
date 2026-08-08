@@ -24,8 +24,8 @@
 # production
 /build
 
-# Generated OpenAPI spec served as a static asset.
-/public/openapi.json
+# Generated OpenAPI spec. Content is produced at build time; the server URL is rewritten at serve time.
+/lib/openapi.json
 
 # misc
 .DS_Store
