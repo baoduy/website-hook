@@ -13,6 +13,7 @@ after 7 days.
 | `src/TestContainer.Webhook/` | `DKNet.Tests.WebsiteHook` — Testcontainers module for the container image |
 | `src/TestContainer.Webhook.Tests/` | xUnit tests for the Testcontainers module |
 | `.github/workflows/publish.yml` | Publishes the `ghcr.io/baoduy/website-hook` container image |
+| `docker-compose.yml` | Docker Compose deployment configuration |
 
 ## API
 
@@ -32,11 +33,18 @@ GET    /api/webhooks/:id/requests/:requestId         → 200 { id, method, path,
 - **Errors**: `404 { error: "not_found" }` for any endpoint referencing a missing/expired/
   deleted webhook; `429 { error: "rate_limited" }` when webhook creation exceeds 20/min/IP.
 
+### OpenAPI
+
+- The OpenAPI spec is generated at build time (via `scripts/generate-openapi.mjs`) and served
+  at **`/openapi.json`**.
+- An interactive API reference UI (Scalar) is available at **`/api/reference`**.
+
 ## Configuration
 
 | Env var   | Default              | Notes                                   |
 | --------- | --------------------- | ---------------------------------------- |
 | `DB_PATH` | `./data/webhook.db`   | Container default: `/data/webhook.db`. Mount `/data` as a volume for persistence. |
+| `DISABLE_RATE_LIMIT` | (disabled) | Set to `"true"`, `"1"`, or `"yes"` to disable the 20/min/IP webhook creation limit. |
 
 ## Running locally
 
@@ -52,6 +60,15 @@ npm run dev
 docker build -t website-hook src/webhook
 docker run -p 3000:3000 -v website-hook-data:/data website-hook
 ```
+
+### docker compose
+
+```bash
+docker compose up -d
+```
+
+Override the default database path, disable rate-limiting, or change the host port by uncommenting
+or editing the relevant lines in `docker-compose.yml`.
 
 ## Testcontainers module
 

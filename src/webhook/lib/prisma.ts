@@ -19,12 +19,8 @@ let workersRuntime: boolean | undefined;
 function isWorkersRuntime(): boolean {
   if (workersRuntime !== undefined) return workersRuntime;
 
-  // Fast path: the Node.js runtime is never the Workers runtime.
-  if (process.env.NEXT_RUNTIME === "nodejs") {
-    workersRuntime = false;
-    return false;
-  }
-
+  // Probe the Cloudflare context directly. `process.env.NEXT_RUNTIME` is
+  // statically replaced to "nodejs" by the bundler, so it cannot be trusted.
   try {
     const { env } = getCloudflareContext();
     workersRuntime = env.DB !== undefined;

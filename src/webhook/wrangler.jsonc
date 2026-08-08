@@ -4,12 +4,19 @@
   "main": ".open-next/worker.js",
   "compatibility_date": "2025-08-07",
   "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "logpush": false,
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "webhook-db",
       "database_id": "43191727-477b-4949-b799-21f46b31b9c8",
-      "migrations_dir": "prisma/migrations"
+      "migrations_dir": "prisma/migrations",
+      "migrations_pattern": "prisma/migrations/*/migration.sql"
     }
   ],
   "triggers": {
