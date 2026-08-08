@@ -8,7 +8,7 @@
     {
       "binding": "DB",
       "database_name": "website-hook-db",
-      "database_id": "$(WEBSITE_HOOK_D1_DATABASE_ID)",
+      "database_id": "${WEBSITE_HOOK_D1_DATABASE_ID}",
       "migrations_dir": "prisma/migrations"
     }
   ],
