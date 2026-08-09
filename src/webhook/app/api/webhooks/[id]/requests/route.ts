@@ -1,13 +1,23 @@
 import type { NextRequest } from "next/server";
 import { getWebhook, listCapturedRequests } from "@/lib/db";
-import { notFound, serializeCapturedRequest } from "@/lib/http";
+import { getClientIp, notFound, serializeCapturedRequest } from "@/lib/http";
+import { getRequestPath, logRequest } from "@/lib/logging";
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const start = performance.now();
   const { id } = await params;
-  if (!(await getWebhook(id))) return notFound();
+  const ip = getClientIp(request);
+  if (!(await getWebhook(id))) {
+    const response = notFound();
+    logRequest(request.method, getRequestPath(request), response.status, Math.round(performance.now() - start), {
+      webhookId: id,
+      clientIp: ip,
+    });
+    return response;
+  }
 
   const { searchParams } = request.nextUrl;
   const requestedLimit = Number(searchParams.get("limit"));
@@ -15,5 +25,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const cursor = searchParams.get("cursor");
 
   const page = await listCapturedRequests(id, limit, cursor);
-  return Response.json({ items: page.items.map(serializeCapturedRequest), nextCursor: page.nextCursor });
+  const response = Response.json({ items: page.items.map(serializeCapturedRequest), nextCursor: page.nextCursor });
+  logRequest(request.method, getRequestPath(request), response.status, Math.round(performance.now() - start), {
+    webhookId: id,
+    clientIp: ip,
+  });
+  return response;
 }
