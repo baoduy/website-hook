@@ -80,3 +80,59 @@ describe("schema provisioning", () => {
     expect((await createWebhook()).id).toBeTruthy();
   });
 });
+
+// QC verification (DRK-280): the D1 migration repair. ensureSchema now walks every migration in
+// `prisma/migrations` in sorted order and applies each, instead of only 0_init. The live-env
+// scenario: a database that already had 0_init recorded (with creator_ip from a botched prior
+// deploy) must not crash when migration 1 re-adds creator_ip — SQLite has no ADD COLUMN IF NOT
+// EXISTS, so the duplicate-column error is swallowed and the rest of the migration continues.
+
+import { PrismaClient } from "@prisma/client";
+
+async function columnExists(prisma: PrismaClient, table: string, column: string): Promise<boolean> {
+  const rows = (await prisma.$queryRawUnsafe<{ name: string }[]>(
+    `SELECT name FROM pragma_table_info(?) WHERE name = ?`,
+    table,
+    column,
+  )) as unknown as { name: string }[];
+  return rows.length > 0;
+}
+
+describe("schema provisioning — ordered multi-migration application (DRK-280)", () => {
+  it("applies all migrations in order on a fresh DB — creator_ip arrives via migration 1, not 0_init", async () => {
+    const { ensureSchema, getClient } = await import("./prisma");
+    const prisma = getClient();
+    await ensureSchema(prisma);
+
+    // The webhooks table from 0_init must exist…
+    const tables = (await prisma.$queryRawUnsafe<{ name: string }[]>(
+      `SELECT name FROM sqlite_master WHERE type='table' AND name='webhooks'`,
+    )) as unknown as { name: string }[];
+    expect(tables.length).toBe(1);
+
+    // …and the creator_ip column from migration 1 must be present.
+    expect(await columnExists(prisma, "webhooks", "creator_ip")).toBe(true);
+    expect(await columnExists(prisma, "webhooks", "last_activity_at")).toBe(true);
+  });
+
+  it("is idempotent against a partially-migrated DB that already has creator_ip — duplicate column is swallowed", async () => {
+    // Simulate the live-env botched state: 0_init already applied WITH creator_ip baked in
+    // (the old, broken migration). build that schema directly, then run ensureSchema — it must
+    // not throw on the duplicate creator_ip ADD COLUMN from migration 1.
+    const { getClient } = await import("./prisma");
+    const prisma = getClient();
+    await prisma.$executeRawUnsafe(
+      `CREATE TABLE "webhooks" ("id" TEXT NOT NULL PRIMARY KEY, "created_at" BIGINT NOT NULL, "last_activity_at" BIGINT NOT NULL, "creator_ip" TEXT NOT NULL DEFAULT '');`,
+    );
+
+    const { ensureSchema } = await import("./prisma");
+    await expect(ensureSchema(prisma)).resolves.not.toThrow();
+
+    expect(await columnExists(prisma, "webhooks", "creator_ip")).toBe(true);
+    // The captured_requests table from 0_init must also have been applied in the same pass.
+    const reqTables = (await prisma.$queryRawUnsafe<{ name: string }[]>(
+      `SELECT name FROM sqlite_master WHERE type='table' AND name='captured_requests'`,
+    )) as unknown as { name: string }[];
+    expect(reqTables.length).toBe(1);
+  });
+});

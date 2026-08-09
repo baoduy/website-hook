@@ -96,3 +96,63 @@ describe("capture handler", () => {
     expect(res.status).toBe(404);
   });
 });
+
+describe("capture handler — structured logging (DRK-280)", () => {
+  let logSpy: ReturnType<typeof vi.spyOn>;
+  let errorSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    vi.resetModules();
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), "webhook-capture-log-"));
+    process.env.DB_PATH = path.join(dir, "webhook.db");
+    logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    logSpy.mockRestore();
+    errorSpy.mockRestore();
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("logs a 200 capture as JSON with method/path/webhookId/clientIp and never the body", async () => {
+    const db = await import("@/lib/db");
+    const { POST } = await import("./route");
+    const webhook = await db.createWebhook();
+
+    const res = await POST(
+      new NextRequest(`http://localhost/${webhook.id}/orders/42`, {
+        method: "POST",
+        headers: { "x-forwarded-for": "203.0.113.7" },
+        body: JSON.stringify({ secret: "never-log-me" }),
+      }),
+      { params: Promise.resolve({ id: webhook.id, path: ["orders", "42"] }) },
+    );
+    expect(res.status).toBe(200);
+    expect(logSpy).toHaveBeenCalledOnce();
+
+    const entry = JSON.parse(logSpy.mock.calls[0][0] as string);
+    expect(entry.method).toBe("POST");
+    expect(entry.path).toBe(`/${webhook.id}/orders/42`);
+    expect(entry.status).toBe(200);
+    expect(entry.webhookId).toBe(webhook.id);
+    expect(entry.clientIp).toBe("203.0.113.7");
+    expect(typeof entry.durationMs).toBe("number");
+    expect("body" in entry).toBe(false);
+    // The request body must not appear anywhere in the emitted log line.
+    expect(logSpy.mock.calls[0][0]).not.toContain("never-log-me");
+  });
+
+  it("logs a 404 for an unknown webhook to console.error with the webhookId", async () => {
+    const { POST } = await import("./route");
+    const res = await POST(new NextRequest("http://localhost/does-not-exist", { method: "POST" }), {
+      params: Promise.resolve({ id: "does-not-exist", path: [] }),
+    });
+    expect(res.status).toBe(404);
+    expect(errorSpy).toHaveBeenCalledOnce();
+    expect(logSpy).not.toHaveBeenCalled();
+    const entry = JSON.parse(errorSpy.mock.calls[0][0] as string);
+    expect(entry.status).toBe(404);
+    expect(entry.webhookId).toBe("does-not-exist");
+  });
+});

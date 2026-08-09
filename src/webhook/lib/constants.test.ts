@@ -1,72 +1,68 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_WEBHOOK_QUOTA, getWebhookQuota, isRateLimitDisabled, isWebhookQuotaDisabled } from "./constants";
 
-// `NODE_ENV` is declared read-only in @types/node's ProcessEnv interface, so mutating it for the
-// quota-config tests routes through a writable view of process.env rather than the typed surface.
-const env = process.env as Record<string, string | undefined>;
-const setNodeEnv = (value: string | undefined) => {
-  if (value === undefined) delete env.NODE_ENV;
-  else env.NODE_ENV = value;
-};
-
-// Independent QC verification of the operator rate-limit kill-switch contract (spec R4):
-// disabling is deployment-wide config only; only the documented truthy strings turn it off,
-// everything else (incl. the explicit "false" edge case) keeps the 20/min/IP limit enforced.
-// A caller cannot influence this per request — it reads process.env, never request state.
-
-let original: string | undefined;
-
-beforeEach(() => {
-  original = process.env.DISABLE_RATE_LIMIT;
-  delete process.env.DISABLE_RATE_LIMIT;
-});
-
-afterEach(() => {
-  if (original === undefined) delete process.env.DISABLE_RATE_LIMIT;
-  else process.env.DISABLE_RATE_LIMIT = original;
-});
+// QC verification (DRK-280): the operator kill-switch contract was flipped — rate limiting and
+// the per-IP webhook quota now default to DISABLED (the live-env scenario: nothing is enforced
+// unless an operator explicitly opts in). Only the documented "false"/"0"/"no" spellings
+// re-enable; every other value (incl. "true"/"1"/"yes" and garbage) leaves the limit disabled.
+// A caller cannot influence this per request — both read process.env, never request state.
 
 describe("isRateLimitDisabled", () => {
-  it("enforces the rate limit when DISABLE_RATE_LIMIT is unset (default on)", () => {
-    expect(isRateLimitDisabled()).toBe(false);
+  let original: string | undefined;
+
+  beforeEach(() => {
+    original = process.env.DISABLE_RATE_LIMIT;
+    delete process.env.DISABLE_RATE_LIMIT;
   });
 
-  it("enforces the rate limit when DISABLE_RATE_LIMIT is an empty string", () => {
+  afterEach(() => {
+    if (original === undefined) delete process.env.DISABLE_RATE_LIMIT;
+    else process.env.DISABLE_RATE_LIMIT = original;
+  });
+
+  it("disables the rate limit when DISABLE_RATE_LIMIT is unset (default off)", () => {
+    expect(isRateLimitDisabled()).toBe(true);
+  });
+
+  it("disables the rate limit when DISABLE_RATE_LIMIT is an empty string", () => {
     process.env.DISABLE_RATE_LIMIT = "";
+    expect(isRateLimitDisabled()).toBe(true);
+  });
+
+  it.each(["false", "0", "no"])("re-enables the rate limit for opt-in value %q", (value) => {
+    process.env.DISABLE_RATE_LIMIT = value;
     expect(isRateLimitDisabled()).toBe(false);
   });
 
-  it.each(["false", "0", "no", "off", "disabled"])(
-    "enforces the rate limit for non-truthy value %q",
+  it.each(["true", "1", "yes", "off", "disabled", "maybe", "something"])(
+    "keeps the rate limit disabled for non-opt-in value %q",
     (value) => {
       process.env.DISABLE_RATE_LIMIT = value;
-      expect(isRateLimitDisabled()).toBe(false);
+      expect(isRateLimitDisabled()).toBe(true);
     },
   );
 
-  it.each(["true", "1", "yes"])("disables the rate limit for truthy value %q", (value) => {
-    process.env.DISABLE_RATE_LIMIT = value;
-    expect(isRateLimitDisabled()).toBe(true);
-  });
-
-  it("is case-insensitive — TRUE / Yes also disable", () => {
-    process.env.DISABLE_RATE_LIMIT = "TRUE";
-    expect(isRateLimitDisabled()).toBe(true);
-    process.env.DISABLE_RATE_LIMIT = "Yes";
-    expect(isRateLimitDisabled()).toBe(true);
-  });
-
-  it("does not trim — a padded value keeps the rate limit enforced", () => {
-    process.env.DISABLE_RATE_LIMIT = " true ";
+  it("is case-insensitive — FALSE / No / 0 also re-enable", () => {
+    process.env.DISABLE_RATE_LIMIT = "FALSE";
     expect(isRateLimitDisabled()).toBe(false);
+    process.env.DISABLE_RATE_LIMIT = "No";
+    expect(isRateLimitDisabled()).toBe(false);
+    process.env.DISABLE_RATE_LIMIT = "0";
+    expect(isRateLimitDisabled()).toBe(false);
+  });
+
+  it("does not trim — a padded value stays disabled", () => {
+    process.env.DISABLE_RATE_LIMIT = " false ";
+    expect(isRateLimitDisabled()).toBe(true);
   });
 });
 
-// QC verification (DRK-275): the per-IP webhook quota config contract (spec §5/§D4, DRK-272 §6 R3).
-// `getWebhookQuota` must fail to the safe default (5) — never fail open to unlimited — for any value
-// that is not an explicit disable. `isWebhookQuotaDisabled` mirrors the rate-limit kill-switch
-// convention: only the documented truthy strings disable, everything else enforces. Both read
-// process.env only; no request input can reach them (spec §5 Security).
+// QC verification (DRK-280): the per-IP webhook quota config contract. `getWebhookQuota` returns
+// the explicit cap when one is set, `null` when unset or explicitly disabled, and falls back to
+// the safe default (5) for any invalid explicit value — never fail open to a weird number. The
+// route pairs this with `isWebhookQuotaDisabled`: the quota is only enforced when the operator
+// opts in via DISABLE_WEBHOOK_QUOTA=false/0/no AND provides a cap (explicit or via the default
+// fallback for invalid values).
 
 describe("getWebhookQuota", () => {
   const cases: Array<[string, number | null]> = [
@@ -86,35 +82,29 @@ describe("getWebhookQuota", () => {
   ];
 
   let originalQuota: string | undefined;
-  let originalNodeEnv: string | undefined;
 
   beforeEach(() => {
     originalQuota = process.env.WEBHOOK_QUOTA;
-    originalNodeEnv = process.env.NODE_ENV;
     delete process.env.WEBHOOK_QUOTA;
-    // The quota's production default is 5 regardless of NODE_ENV; pin to a non-test value so the
-    // unset/empty-string cases prove the deployed default, not the in-process test convenience seam.
-    setNodeEnv("production");
   });
 
   afterEach(() => {
     if (originalQuota === undefined) delete process.env.WEBHOOK_QUOTA;
     else process.env.WEBHOOK_QUOTA = originalQuota;
-    setNodeEnv(originalNodeEnv);
   });
 
   it("shares the single source of truth — DEFAULT_WEBHOOK_QUOTA is 5", () => {
     expect(DEFAULT_WEBHOOK_QUOTA).toBe(5);
   });
 
-  it("defaults to the safe default (5) when WEBHOOK_QUOTA is unset", () => {
+  it("returns null (no quota) when WEBHOOK_QUOTA is unset — the quota is opt-in", () => {
     delete process.env.WEBHOOK_QUOTA;
-    expect(getWebhookQuota()).toBe(DEFAULT_WEBHOOK_QUOTA);
+    expect(getWebhookQuota()).toBeNull();
   });
 
-  it("defaults to the safe default (5) when WEBHOOK_QUOTA is an empty string", () => {
+  it("returns null (no quota) when WEBHOOK_QUOTA is an empty string", () => {
     process.env.WEBHOOK_QUOTA = "";
-    expect(getWebhookQuota()).toBe(DEFAULT_WEBHOOK_QUOTA);
+    expect(getWebhookQuota()).toBeNull();
   });
 
   it.each(cases)("parses %q -> %s", (value, expected) => {
@@ -139,36 +129,6 @@ describe("getWebhookQuota", () => {
   });
 });
 
-describe("getWebhookQuota — in-process test seam", () => {
-  let originalQuota: string | undefined;
-  let originalNodeEnv: string | undefined;
-
-  beforeEach(() => {
-    originalQuota = process.env.WEBHOOK_QUOTA;
-    originalNodeEnv = process.env.NODE_ENV;
-    delete process.env.WEBHOOK_QUOTA;
-  });
-
-  afterEach(() => {
-    if (originalQuota === undefined) delete process.env.WEBHOOK_QUOTA;
-    else process.env.WEBHOOK_QUOTA = originalQuota;
-    setNodeEnv(originalNodeEnv);
-  });
-
-  it("disables the quota (null) when unset under NODE_ENV=test so the legacy suite stays unblocked", () => {
-    setNodeEnv("test");
-    expect(getWebhookQuota()).toBeNull();
-  });
-
-  it("still honours an explicit WEBHOOK_QUOTA under NODE_ENV=test — the seam only fills the unset case", () => {
-    setNodeEnv("test");
-    process.env.WEBHOOK_QUOTA = "3";
-    expect(getWebhookQuota()).toBe(3);
-    process.env.WEBHOOK_QUOTA = "disabled";
-    expect(getWebhookQuota()).toBeNull();
-  });
-});
-
 describe("isWebhookQuotaDisabled", () => {
   let original: string | undefined;
 
@@ -182,37 +142,39 @@ describe("isWebhookQuotaDisabled", () => {
     else process.env.DISABLE_WEBHOOK_QUOTA = original;
   });
 
-  it("enforces the quota when DISABLE_WEBHOOK_QUOTA is unset (default on)", () => {
-    expect(isWebhookQuotaDisabled()).toBe(false);
+  it("disables the quota when DISABLE_WEBHOOK_QUOTA is unset (default off)", () => {
+    expect(isWebhookQuotaDisabled()).toBe(true);
   });
 
-  it("enforces the quota when DISABLE_WEBHOOK_QUOTA is an empty string", () => {
+  it("disables the quota when DISABLE_WEBHOOK_QUOTA is an empty string", () => {
     process.env.DISABLE_WEBHOOK_QUOTA = "";
+    expect(isWebhookQuotaDisabled()).toBe(true);
+  });
+
+  it.each(["false", "0", "no"])("re-enables the quota for opt-in value %q", (value) => {
+    process.env.DISABLE_WEBHOOK_QUOTA = value;
     expect(isWebhookQuotaDisabled()).toBe(false);
   });
 
-  it.each(["false", "0", "no", "off", "disabled"])(
-    "enforces the quota for non-truthy value %q",
+  it.each(["true", "1", "yes", "off", "disabled", "maybe"])(
+    "keeps the quota disabled for non-opt-in value %q",
     (value) => {
       process.env.DISABLE_WEBHOOK_QUOTA = value;
-      expect(isWebhookQuotaDisabled()).toBe(false);
+      expect(isWebhookQuotaDisabled()).toBe(true);
     },
   );
 
-  it.each(["true", "1", "yes"])("disables the quota for truthy value %q", (value) => {
-    process.env.DISABLE_WEBHOOK_QUOTA = value;
-    expect(isWebhookQuotaDisabled()).toBe(true);
-  });
-
-  it("is case-insensitive — TRUE / Yes also disable", () => {
-    process.env.DISABLE_WEBHOOK_QUOTA = "TRUE";
-    expect(isWebhookQuotaDisabled()).toBe(true);
-    process.env.DISABLE_WEBHOOK_QUOTA = "Yes";
-    expect(isWebhookQuotaDisabled()).toBe(true);
-  });
-
-  it("does not trim — a padded value keeps the quota enforced", () => {
-    process.env.DISABLE_WEBHOOK_QUOTA = " true ";
+  it("is case-insensitive — FALSE / No / 0 also re-enable", () => {
+    process.env.DISABLE_WEBHOOK_QUOTA = "FALSE";
     expect(isWebhookQuotaDisabled()).toBe(false);
+    process.env.DISABLE_WEBHOOK_QUOTA = "No";
+    expect(isWebhookQuotaDisabled()).toBe(false);
+    process.env.DISABLE_WEBHOOK_QUOTA = "0";
+    expect(isWebhookQuotaDisabled()).toBe(false);
+  });
+
+  it("does not trim — a padded value stays disabled", () => {
+    process.env.DISABLE_WEBHOOK_QUOTA = " false ";
+    expect(isWebhookQuotaDisabled()).toBe(true);
   });
 });

@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { TTL_DAYS } from "@/lib/constants";
+import { DEFAULT_WEBHOOK_QUOTA, TTL_DAYS } from "@/lib/constants";
 
 // QC verification (DRK-275): end-to-end quota enforcement against the real SQLite store.
 // These run in-process on the same vitest harness as the unit suite. The quota is opted in
@@ -87,6 +87,7 @@ async function lastWebhookIdFor(ip: string): Promise<string | null> {
 
 describe("POST /api/webhooks — per-IP quota (integration)", () => {
   it("rejects the 6th creation from one IP with quota_exceeded and creates no webhook", async () => {
+    process.env.DISABLE_WEBHOOK_QUOTA = "false";
     process.env.WEBHOOK_QUOTA = "5";
     const { POST } = await import("./route");
 
@@ -102,6 +103,7 @@ describe("POST /api/webhooks — per-IP quota (integration)", () => {
   });
 
   it("enforces the quota per client IP — a second IP is unaffected", async () => {
+    process.env.DISABLE_WEBHOOK_QUOTA = "false";
     process.env.WEBHOOK_QUOTA = "5";
     const { POST } = await import("./route");
 
@@ -116,6 +118,7 @@ describe("POST /api/webhooks — per-IP quota (integration)", () => {
   });
 
   it("frees a quota slot on deletion — the next creation from the same IP succeeds", async () => {
+    process.env.DISABLE_WEBHOOK_QUOTA = "false";
     process.env.WEBHOOK_QUOTA = "5";
     const { POST } = await import("./route");
 
@@ -134,6 +137,7 @@ describe("POST /api/webhooks — per-IP quota (integration)", () => {
   });
 
   it("frees a quota slot when a held webhook expires (even before the sweep runs)", async () => {
+    process.env.DISABLE_WEBHOOK_QUOTA = "false";
     process.env.WEBHOOK_QUOTA = "5";
     const { POST } = await import("./route");
 
@@ -150,6 +154,7 @@ describe("POST /api/webhooks — per-IP quota (integration)", () => {
   });
 
   it("honours a custom quota number end to end", async () => {
+    process.env.DISABLE_WEBHOOK_QUOTA = "false";
     process.env.WEBHOOK_QUOTA = "2";
     const { POST } = await import("./route");
 
@@ -203,6 +208,7 @@ describe("POST /api/webhooks — per-IP quota (integration)", () => {
 
 describe("POST /api/webhooks — x-real-ip identity (integration)", () => {
   it("resolves the caller from x-real-ip when x-forwarded-for is absent, and quotas it", async () => {
+    process.env.DISABLE_WEBHOOK_QUOTA = "false";
     process.env.WEBHOOK_QUOTA = "5";
     const { POST } = await import("./route");
 
@@ -215,6 +221,7 @@ describe("POST /api/webhooks — x-real-ip identity (integration)", () => {
   });
 
   it("keeps x-forwarded-for and x-real-ip callers in separate buckets", async () => {
+    process.env.DISABLE_WEBHOOK_QUOTA = "false";
     process.env.WEBHOOK_QUOTA = "1";
     const { POST } = await import("./route");
 
@@ -228,6 +235,7 @@ describe("POST /api/webhooks — x-real-ip identity (integration)", () => {
 describe("POST /api/webhooks — quota / rate-limit independence (integration)", () => {
   it("keeps the rate limit enforcing when the quota is disabled", async () => {
     process.env.DISABLE_WEBHOOK_QUOTA = "true";
+    process.env.DISABLE_RATE_LIMIT = "false";
     // rate limit stays on (CREATE_RATE_LIMIT.max = 20)
     const { POST } = await import("./route");
 
@@ -241,6 +249,7 @@ describe("POST /api/webhooks — quota / rate-limit independence (integration)",
 
   it("keeps the quota enforcing when the rate limit is disabled", async () => {
     process.env.DISABLE_RATE_LIMIT = "true";
+    process.env.DISABLE_WEBHOOK_QUOTA = "false";
     process.env.WEBHOOK_QUOTA = "5";
     const { POST } = await import("./route");
 
@@ -253,6 +262,7 @@ describe("POST /api/webhooks — quota / rate-limit independence (integration)",
   });
 
   it("returns the quota_exceeded signal (distinct from rate_limited) so clients can distinguish", async () => {
+    process.env.DISABLE_WEBHOOK_QUOTA = "false";
     process.env.WEBHOOK_QUOTA = "5";
     const { POST } = await import("./route");
 
@@ -261,5 +271,39 @@ describe("POST /api/webhooks — quota / rate-limit independence (integration)",
     const quotaHit = await POST(createFromIp(IP_A));
     expect(quotaHit.status).toBe(429);
     expect(await quotaHit.json()).toEqual({ error: "quota_exceeded" });
+  });
+});
+
+// QC verification (DRK-280): the live-env default — quota is OFF unless an operator opts in.
+describe("POST /api/webhooks — quota defaults (DRK-280)", () => {
+  it("enforces NO quota when no env vars are set (default off — live-env scenario)", async () => {
+    const { POST } = await import("./route");
+
+    for (let i = 0; i < DEFAULT_WEBHOOK_QUOTA + 5; i++) {
+      expect((await POST(createFromIp(IP_A))).status).toBe(201);
+    }
+    expect(await activeCount(IP_A)).toBe(DEFAULT_WEBHOOK_QUOTA + 5);
+  });
+
+  it("enforces NO quota when opted in (DISABLE_WEBHOOK_QUOTA=false) but no WEBHOOK_QUOTA cap is set", async () => {
+    process.env.DISABLE_WEBHOOK_QUOTA = "false";
+    const { POST } = await import("./route");
+
+    for (let i = 0; i < DEFAULT_WEBHOOK_QUOTA + 3; i++) {
+      expect((await POST(createFromIp(IP_A))).status).toBe(201);
+    }
+  });
+
+  it("honours WEBHOOK_QUOTA as the cap when the quota is enabled — 10 overrides the default fallback", async () => {
+    process.env.DISABLE_WEBHOOK_QUOTA = "false";
+    process.env.WEBHOOK_QUOTA = "10";
+    const { POST } = await import("./route");
+
+    for (let i = 0; i < 10; i++) {
+      expect((await POST(createFromIp(IP_A))).status).toBe(201);
+    }
+    const rejected = await POST(createFromIp(IP_A));
+    expect(rejected.status).toBe(429);
+    expect(await rejected.json()).toEqual({ error: "quota_exceeded" });
   });
 });
