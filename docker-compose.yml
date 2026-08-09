@@ -5,7 +5,7 @@ services:
       - "3000:3000"
     environment:
       DB_PATH: /data/webhook.db
-      # DISABLE_RATE_LIMIT: "true"
+      # Rate limiting is disabled by default. Set to "false" to enable.
     volumes:
       - webhook-data:/data
     restart: unless-stopped

@@ -2,8 +2,7 @@
 CREATE TABLE IF NOT EXISTS "webhooks" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "created_at" BIGINT NOT NULL,
-    "last_activity_at" BIGINT NOT NULL,
-    "creator_ip" TEXT NOT NULL
+    "last_activity_at" BIGINT NOT NULL
 );
 
 -- CreateTable

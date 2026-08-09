@@ -19,7 +19,7 @@ export default defineConfig({
         "lib/**/*.ts",
         "app/page.tsx",
         "app/layout.tsx",
-        "app/api/webhooks/route.ts",
+        "app/**/route.ts",
         "components/inspector/**/*.{ts,tsx}",
         "components/theme.ts",
         "components/theme-toggle.tsx",
