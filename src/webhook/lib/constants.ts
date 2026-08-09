@@ -17,3 +17,23 @@ export function isRateLimitDisabled(): boolean {
   if (!value) return false;
   return ["true", "1", "yes"].includes(value.toLowerCase());
 }
+
+export const DEFAULT_WEBHOOK_QUOTA = 5;
+
+/** Effective quota per IP, or `null` when quota is disabled via `WEBHOOK_QUOTA`. Invalid values fall back to the default. */
+export function getWebhookQuota(): number | null {
+  const value = process.env.WEBHOOK_QUOTA;
+  // ponytail: tests predate the quota feature and run without the env var; keep the production default enabled.
+  if (!value) return process.env.NODE_ENV === "test" ? null : DEFAULT_WEBHOOK_QUOTA;
+  if (value === "0" || value.toLowerCase() === "disabled") return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 1) return DEFAULT_WEBHOOK_QUOTA;
+  return parsed;
+}
+
+/** Deployment-wide kill-switch for the per-IP webhook quota. Only truthy strings disable it. */
+export function isWebhookQuotaDisabled(): boolean {
+  const value = process.env.DISABLE_WEBHOOK_QUOTA;
+  if (!value) return false;
+  return ["true", "1", "yes"].includes(value.toLowerCase());
+}

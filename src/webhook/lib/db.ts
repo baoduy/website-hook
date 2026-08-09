@@ -72,17 +72,30 @@ function decodeCursor(cursor: string): Cursor {
   return JSON.parse(Buffer.from(cursor, "base64url").toString("utf-8")) as Cursor;
 }
 
-export async function createWebhook(): Promise<WebhookInfo> {
+export async function createWebhook(creatorIp: string = ""): Promise<WebhookInfo> {
   const prisma = getClient();
   await ensureSchema(prisma);
 
   const id = crypto.randomUUID();
   const now = Date.now();
   await prisma.webhook.create({
-    data: { id, createdAt: BigInt(now), lastActivityAt: BigInt(now) },
+    data: { id, createdAt: BigInt(now), lastActivityAt: BigInt(now), creatorIp },
   });
 
   return { id, createdAt: now, lastActivityAt: now, requestCount: 0, expiresAt: now + TTL_MS };
+}
+
+/** Counts non-expired webhooks created from the same IP for quota enforcement. */
+export async function countActiveWebhooksByIp(creatorIp: string): Promise<number> {
+  const prisma = getClient();
+  await ensureSchema(prisma);
+
+  return prisma.webhook.count({
+    where: {
+      creatorIp,
+      lastActivityAt: { gt: BigInt(Date.now() - TTL_MS) },
+    },
+  });
 }
 
 export async function touchWebhook(id: string): Promise<void> {

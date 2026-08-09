@@ -87,6 +87,8 @@ public sealed class WebsiteHookBuilder : ContainerBuilder<WebsiteHookBuilder, We
         return base.Init()
             .WithImage(WebsiteHookImage)
             .WithPortBinding(WebsiteHookPort, true)
+            .WithEnvironment("DISABLE_RATE_LIMIT", "true")
+            .WithEnvironment("DISABLE_WEBHOOK_QUOTA", "true")
             .WithWaitStrategy(Wait.ForUnixContainer()
                 .UntilHttpRequestIsSucceeded(r => r
                     .ForPort(WebsiteHookPort)
