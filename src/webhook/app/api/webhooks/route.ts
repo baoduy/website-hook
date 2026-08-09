@@ -2,12 +2,19 @@ import type { NextRequest } from "next/server";
 import { CREATE_RATE_LIMIT, getWebhookQuota, isRateLimitDisabled, isWebhookQuotaDisabled } from "@/lib/constants";
 import { countActiveWebhooksByIp, createWebhook } from "@/lib/db";
 import { getClientIp } from "@/lib/http";
+import { getRequestPath, logRequest } from "@/lib/logging";
 import { isRateLimited } from "@/lib/rateLimit";
 
 export async function POST(request: NextRequest) {
+  const start = performance.now();
   const ip = getClientIp(request);
+
   if (!isRateLimitDisabled() && isRateLimited(ip, CREATE_RATE_LIMIT.windowMs, CREATE_RATE_LIMIT.max)) {
-    return Response.json({ error: "rate_limited" }, { status: 429 });
+    const response = Response.json({ error: "rate_limited" }, { status: 429 });
+    logRequest(request.method, getRequestPath(request), response.status, Math.round(performance.now() - start), {
+      clientIp: ip,
+    });
+    return response;
   }
 
   if (!isWebhookQuotaDisabled()) {
@@ -15,7 +22,11 @@ export async function POST(request: NextRequest) {
     if (quota !== null) {
       const count = await countActiveWebhooksByIp(ip);
       if (count >= quota) {
-        return Response.json({ error: "quota_exceeded" }, { status: 429 });
+        const response = Response.json({ error: "quota_exceeded" }, { status: 429 });
+        logRequest(request.method, getRequestPath(request), response.status, Math.round(performance.now() - start), {
+          clientIp: ip,
+        });
+        return response;
       }
     }
   }
@@ -27,8 +38,13 @@ export async function POST(request: NextRequest) {
   const protocol = request.headers.get("x-forwarded-proto") ?? request.nextUrl.protocol.replace(":", "");
   const url = `${protocol}://${host}/${webhook.id}`;
 
-  return Response.json(
+  const response = Response.json(
     { id: webhook.id, url, createdAt: webhook.createdAt, expiresAt: webhook.expiresAt },
     { status: 201 },
   );
+  logRequest(request.method, getRequestPath(request), response.status, Math.round(performance.now() - start), {
+    webhookId: webhook.id,
+    clientIp: ip,
+  });
+  return response;
 }

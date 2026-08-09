@@ -49,3 +49,55 @@ describe("GET /api/webhooks/:id/requests", () => {
     expect(res.status).toBe(404);
   });
 });
+
+describe("GET /api/webhooks/:id/requests — structured logging (DRK-280)", () => {
+  let logSpy: ReturnType<typeof vi.spyOn>;
+  let errorSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    vi.resetModules();
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), "webhook-list-log-"));
+    process.env.DB_PATH = path.join(dir, "webhook.db");
+    logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    logSpy.mockRestore();
+    errorSpy.mockRestore();
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("logs a 200 list response as JSON with path/webhookId/clientIp and no body", async () => {
+    const db = await import("@/lib/db");
+    const { GET } = await import("./route");
+    const webhook = await db.createWebhook();
+
+    const res = await GET(new NextRequest(`http://localhost/api/webhooks/${webhook.id}/requests?limit=2`, { headers: { "x-forwarded-for": "5.6.7.8" } }), {
+      params: Promise.resolve({ id: webhook.id }),
+    });
+    expect(res.status).toBe(200);
+    expect(logSpy).toHaveBeenCalledOnce();
+
+    const entry = JSON.parse(logSpy.mock.calls[0][0] as string);
+    expect(entry.method).toBe("GET");
+    expect(entry.path).toBe(`/api/webhooks/${webhook.id}/requests`);
+    expect(entry.status).toBe(200);
+    expect(entry.webhookId).toBe(webhook.id);
+    expect(entry.clientIp).toBe("5.6.7.8");
+    expect("body" in entry).toBe(false);
+  });
+
+  it("logs a 404 for an unknown webhook to console.error", async () => {
+    const { GET } = await import("./route");
+    const res = await GET(new NextRequest("http://localhost/api/webhooks/unknown/requests"), {
+      params: Promise.resolve({ id: "unknown" }),
+    });
+    expect(res.status).toBe(404);
+    expect(errorSpy).toHaveBeenCalledOnce();
+    expect(logSpy).not.toHaveBeenCalled();
+    const entry = JSON.parse(errorSpy.mock.calls[0][0] as string);
+    expect(entry.status).toBe(404);
+    expect(entry.webhookId).toBe("unknown");
+  });
+});

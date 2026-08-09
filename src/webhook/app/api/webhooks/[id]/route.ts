@@ -1,17 +1,40 @@
+import type { NextRequest } from "next/server";
 import { deleteWebhook, getWebhook } from "@/lib/db";
-import { notFound, serializeWebhook } from "@/lib/http";
+import { getClientIp, notFound, serializeWebhook } from "@/lib/http";
+import { getRequestPath, logRequest } from "@/lib/logging";
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const start = performance.now();
   const { id } = await params;
+  const ip = getClientIp(request as NextRequest);
   const webhook = await getWebhook(id);
-  if (!webhook) return notFound();
+  if (!webhook) {
+    const response = notFound();
+    logRequest(request.method, getRequestPath(request), response.status, Math.round(performance.now() - start), {
+      webhookId: id,
+      clientIp: ip,
+    });
+    return response;
+  }
 
-  return Response.json(serializeWebhook(webhook));
+  const response = Response.json(serializeWebhook(webhook));
+  logRequest(request.method, getRequestPath(request), response.status, Math.round(performance.now() - start), {
+    webhookId: id,
+    clientIp: ip,
+  });
+  return response;
 }
 
 // Idempotent: deleting an already-gone webhook still returns 204 (spec R3).
-export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const start = performance.now();
   const { id } = await params;
+  const ip = getClientIp(request as NextRequest);
   await deleteWebhook(id);
-  return new Response(null, { status: 204 });
+  const response = new Response(null, { status: 204 });
+  logRequest(request.method, getRequestPath(request), response.status, Math.round(performance.now() - start), {
+    webhookId: id,
+    clientIp: ip,
+  });
+  return response;
 }

@@ -45,15 +45,33 @@ export async function ensureSchema(prisma: PrismaClient): Promise<void> {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const path = require("node:path");
 
-  const migrationPath = path.join(process.cwd(), "prisma", "migrations", "0_init", "migration.sql");
-  const sql = fs.readFileSync(migrationPath, "utf-8").replace(/--.*$/gm, "");
-  const statements = sql
-    .split(";")
-    .map((statement: string) => statement.trim())
-    .filter((statement: string) => statement.length > 0);
+  const migrationsDir = path.join(process.cwd(), "prisma", "migrations");
+  const entries = fs.readdirSync(migrationsDir, { withFileTypes: true });
+  const migrationDirs = entries
+    .filter((entry: { isDirectory(): boolean; name: string }) => entry.isDirectory())
+    .map((entry: { isDirectory(): boolean; name: string }) => entry.name)
+    .sort();
 
-  for (const statement of statements) {
-    await prisma.$executeRawUnsafe(`${statement};`);
+  for (const dir of migrationDirs) {
+    const migrationPath = path.join(migrationsDir, dir, "migration.sql");
+    if (!fs.existsSync(migrationPath)) continue;
+
+    const sql = fs.readFileSync(migrationPath, "utf-8").replace(/--.*$/gm, "");
+    const statements = sql
+      .split(";")
+      .map((statement: string) => statement.trim())
+      .filter((statement: string) => statement.length > 0);
+
+    for (const statement of statements) {
+      try {
+        await prisma.$executeRawUnsafe(`${statement};`);
+      } catch (err) {
+        // ponytail: SQLite has no ADD COLUMN IF NOT EXISTS; ignore duplicate column errors so
+        // migrations stay idempotent when run against a partially-migrated local database.
+        if (err instanceof Error && /duplicate column/i.test(err.message)) continue;
+        throw err;
+      }
+    }
   }
 
   schemaEnsured = true;
