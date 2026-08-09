@@ -15,6 +15,8 @@ export function notFound() {
 export function getClientIp(request: NextRequest): string {
   const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
   if (forwarded) return forwarded;
+  const realIp = request.headers.get("x-real-ip")?.trim();
+  if (realIp) return realIp;
   // ponytail: no public NextRequest IP API; fallback is a stable test seam, not a per-request UUID.
   return `direct:${request.headers.get("x-test-caller") ?? "default"}`;
 }
