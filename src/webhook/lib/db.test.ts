@@ -40,6 +40,55 @@ describe("createWebhook", () => {
     expect(webhook.requestCount).toBe(0);
     expect(webhook.expiresAt - webhook.createdAt).toBe(TTL_MS);
   });
+
+  it("persists the creator IP so the quota survives process restarts and shared stores", async () => {
+    const webhook = await db.createWebhook("203.0.113.7");
+
+    const { ensureSchema, getClient } = await import("./prisma");
+    const prisma = getClient();
+    await ensureSchema(prisma);
+    const row = await prisma.webhook.findUnique({ where: { id: webhook.id } });
+    expect(row?.creatorIp).toBe("203.0.113.7");
+  });
+});
+
+describe("countActiveWebhooksByIp", () => {
+  it("counts only webhooks created from the same IP (quota is per-IP, not global)", async () => {
+    await db.createWebhook("203.0.113.7");
+    await db.createWebhook("203.0.113.7");
+    await db.createWebhook("198.51.100.22");
+
+    expect(await db.countActiveWebhooksByIp("203.0.113.7")).toBe(2);
+    expect(await db.countActiveWebhooksByIp("198.51.100.22")).toBe(1);
+    expect(await db.countActiveWebhooksByIp("192.0.2.9")).toBe(0);
+  });
+
+  it("excludes expired-but-not-yet-purged webhooks from the count (spec R2)", async () => {
+    await db.createWebhook("203.0.113.7");
+    const expired = await db.createWebhook("203.0.113.7");
+    await seedLastActivityDaysAgo(expired.id, TTL_DAYS + 1);
+
+    // The expired row is still in the table (the hourly sweep has not run), but it must not
+    // count against the caller's quota — the quota is derived from non-expired rows only.
+    expect(await db.countActiveWebhooksByIp("203.0.113.7")).toBe(1);
+  });
+
+  it("treats an empty creator IP as its own bucket (legacy callers default to empty, not unset)", async () => {
+    await db.createWebhook();
+    await db.createWebhook("");
+
+    expect(await db.countActiveWebhooksByIp("")).toBe(2);
+    expect(await db.countActiveWebhooksByIp("203.0.113.7")).toBe(0);
+  });
+
+  it("reflects deletion immediately — deleting a webhook frees its quota slot", async () => {
+    const a = await db.createWebhook("203.0.113.7");
+    await db.createWebhook("203.0.113.7");
+
+    expect(await db.countActiveWebhooksByIp("203.0.113.7")).toBe(2);
+    await db.deleteWebhook(a.id);
+    expect(await db.countActiveWebhooksByIp("203.0.113.7")).toBe(1);
+  });
 });
 
 describe("getWebhook", () => {

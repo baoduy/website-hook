@@ -12,6 +12,7 @@ model Webhook {
   id               String            @id
   createdAt        BigInt            @map("created_at")
   lastActivityAt   BigInt            @map("last_activity_at")
+  creatorIp        String            @map("creator_ip")
   capturedRequests CapturedRequest[]
 
   @@map("webhooks")
