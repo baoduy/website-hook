@@ -15,6 +15,10 @@ after 7 days.
 | `.github/workflows/publish.yml` | Publishes the `ghcr.io/baoduy/website-hook` container image |
 | `docker-compose.yml` | Docker Compose deployment configuration |
 
+## Documentation
+
+For the end-to-end architecture, storage layer, hosting-mode differences, and deployment paths, see [`docs/technical-architecture.md`](docs/technical-architecture.md).
+
 ## API
 
 ```
