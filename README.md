@@ -15,6 +15,10 @@ after 7 days.
 | `.github/workflows/publish.yml` | Publishes the `ghcr.io/baoduy/website-hook` container image |
 | `docker-compose.yml` | Docker Compose deployment configuration |
 
+## Documentation
+
+- [`docs/architecture.md`](./docs/architecture.md) — end-to-end technical overview: capture flow, storage layer, schema provisioning, expiry purge, configuration, and deployment paths.
+
 ## API
 
 ```
