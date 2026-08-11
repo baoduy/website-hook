@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { MAX_REMEMBERED_WEBHOOKS } from "@/lib/constants";
 import * as api from "@/lib/inspector/api";
 import type { WebhookSummary } from "@/lib/inspector/api";
-import { addId, clearIds, readIds, removeId } from "@/lib/inspector/storage";
+import { addId, readIds, removeId } from "@/lib/inspector/storage";
 
 /** A remembered id plus whatever the server still knows about it. `gone` = the server 404s it. */
 export type RememberedWebhook = {
@@ -95,12 +95,6 @@ export function useWebhooks() {
     [forget],
   );
 
-  const clear = useCallback(() => {
-    idsRef.current = clearIds(window.localStorage);
-    setWebhooks([]);
-    setPreferredId(null);
-  }, []);
-
   /** Re-reads one webhook's counters — called after a poll finds new requests. */
   const refresh = useCallback(async (id: string) => {
     const entry = await loadOne(id);
@@ -118,7 +112,6 @@ export function useWebhooks() {
     create,
     remove,
     forget,
-    clear,
     refresh,
   };
 }

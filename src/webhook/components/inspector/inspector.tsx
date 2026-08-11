@@ -1,8 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { Database, Webhook } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { GitBranch, Globe, Webhook } from "lucide-react";
 import { Sidebar, SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { filterRequests, resolveSelection, type MethodFilter } from "@/lib/inspector/filter";
@@ -123,17 +122,26 @@ function InspectorShell() {
             />
 
             <div className="flex items-center gap-2 border-t px-3 py-2.5">
-              <Database className="text-muted-foreground size-[14px]" aria-hidden />
-              <span className="text-[11.5px]">Stored in this browser</span>
-              <Button
-                variant="ghost"
-                size="xs"
-                className="hover:text-destructive ml-auto text-[11.5px]"
-                onClick={webhooks.clear}
-                disabled={webhooks.webhooks.length === 0}
+              <a
+                href="https://github.com/baoduy/website-hook"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="View source on GitHub"
+                title="View source on GitHub"
+                className="inline-flex size-[22px] items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground ml-auto"
               >
-                Clear
-              </Button>
+                <GitBranch className="size-[14px]" aria-hidden />
+              </a>
+              <a
+                href="https://drunkcoding.net"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Visit drunkcoding.net"
+                title="Visit drunkcoding.net"
+                className="inline-flex size-[22px] items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+              >
+                <Globe className="size-[14px]" aria-hidden />
+              </a>
             </div>
           </div>
         </Sidebar>
