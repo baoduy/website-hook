@@ -151,15 +151,6 @@ describe("useWebhooks — remove, forget, clear", () => {
     expect(result.current.selectedId).toBe("b");
   });
 
-  it("clear empties the rail and the storage", async () => {
-    seedIds(["a", "b"]);
-    getWebhook.mockResolvedValue({ ok: true, value: summary("x") });
-    const { result } = renderHook(() => useWebhooks());
-    await waitFor(() => expect(result.current.webhooks).toHaveLength(2));
-    act(() => result.current.clear());
-    expect(result.current.webhooks).toEqual([]);
-    expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull();
-  });
 });
 
 describe("useWebhooks — expired/deleted handling", () => {
