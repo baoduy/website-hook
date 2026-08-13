@@ -16,7 +16,7 @@ afterEach(() => {
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
-async function seed(webhookId: string, body?: Uint8Array | null) {
+async function seed(webhookId: string, body?: Uint8Array<ArrayBuffer> | null) {
   const { ensureSchema, getClient } = await import("@/lib/prisma");
   const prisma = getClient();
   await ensureSchema(prisma);

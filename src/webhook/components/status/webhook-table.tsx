@@ -9,8 +9,9 @@ import type { WebhookListItem, RecentRequests } from "@/lib/statistics";
 import { formatBytes, formatNumber, relativeTime, untilTime } from "./formatting";
 import { useState, useCallback } from "react";
 import type { ApiResult } from "@/lib/statistics/api";
+import { CLEANUP_AGE_DAYS } from "@/lib/constants";
 
-const CLEANUP_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+const CLEANUP_AGE_MS = CLEANUP_AGE_DAYS * 24 * 60 * 60 * 1000;
 
 function badgeClasses(method: string): string {
   if (method === "GET" || method === "HEAD") {

@@ -42,7 +42,7 @@ async function seedWebhook(opts: { id?: string; createdAt?: number; lastActivity
 /** Inserts a captured request with explicit timestamp/body (defaults to "now", empty body). */
 async function seedRequest(
   webhookId: string,
-  opts: { createdAt?: number; method?: string; path?: string; body?: Uint8Array | null; truncated?: boolean } = {},
+  opts: { createdAt?: number; method?: string; path?: string; body?: Uint8Array<ArrayBuffer> | null; truncated?: boolean } = {},
 ): Promise<void> {
   const { ensureSchema, getClient } = await import("./prisma");
   const prisma = getClient();
