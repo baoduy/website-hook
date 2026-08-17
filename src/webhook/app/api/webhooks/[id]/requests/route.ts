@@ -6,6 +6,11 @@ import { getRequestPath, logRequest } from "@/lib/logging";
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
 
+/**
+ * List captured requests
+ *
+ * Returns a page of requests captured by the given webhook, newest first, paginated via `limit` (default 20, max 100) and an opaque `cursor`. 404 if the webhook does not exist.
+ */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const start = performance.now();
   const { id } = await params;

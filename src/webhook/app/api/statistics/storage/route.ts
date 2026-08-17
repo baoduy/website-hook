@@ -3,6 +3,11 @@ import { getStorage } from "@/lib/statistics";
 import { getClientIp } from "@/lib/http";
 import { getRequestPath, logRequest } from "@/lib/logging";
 
+/**
+ * Storage stats
+ *
+ * Returns current storage usage (webhook and captured-request counts/size), for the statistics dashboard.
+ */
 export async function GET(request: NextRequest) {
   const start = performance.now();
   const ip = getClientIp(request);

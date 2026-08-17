@@ -6,6 +6,11 @@ import { getRequestPath, logRequest } from "@/lib/logging";
 const DEFAULT_LIMIT = 5;
 const MAX_LIMIT = 100;
 
+/**
+ * List requests for a webhook
+ *
+ * Returns up to `limit` (default 5, max 100) recent requests captured by the given webhook, for the statistics dashboard. 404 if the webhook does not exist.
+ */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const start = performance.now();
   const { id } = await params;

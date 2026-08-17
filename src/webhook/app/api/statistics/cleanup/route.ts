@@ -3,6 +3,11 @@ import { previewCleanup, runCleanup } from "@/lib/statistics";
 import { getClientIp } from "@/lib/http";
 import { getRequestPath, logRequest } from "@/lib/logging";
 
+/**
+ * Preview cleanup
+ *
+ * Reports what an expired-data cleanup pass would remove, without deleting anything.
+ */
 export async function GET(request: NextRequest) {
   const start = performance.now();
   const ip = getClientIp(request);
@@ -15,6 +20,11 @@ export async function GET(request: NextRequest) {
   return response;
 }
 
+/**
+ * Run cleanup
+ *
+ * Permanently deletes expired webhooks and their captured requests, and returns what was removed.
+ */
 export async function DELETE(request: NextRequest) {
   const start = performance.now();
   const ip = getClientIp(request);

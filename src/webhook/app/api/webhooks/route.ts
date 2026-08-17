@@ -5,6 +5,11 @@ import { getClientIp } from "@/lib/http";
 import { getRequestPath, logRequest } from "@/lib/logging";
 import { isRateLimited } from "@/lib/rateLimit";
 
+/**
+ * Create a webhook
+ *
+ * Allocates a new disposable webhook endpoint for the caller's IP and returns its URL, creation time, and expiry. Subject to rate limiting and an optional per-IP quota on active webhooks.
+ */
 export async function POST(request: NextRequest) {
   const start = performance.now();
   const ip = getClientIp(request);

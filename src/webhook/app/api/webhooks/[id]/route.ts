@@ -3,6 +3,11 @@ import { deleteWebhook, getWebhook } from "@/lib/db";
 import { getClientIp, notFound, serializeWebhook } from "@/lib/http";
 import { getRequestPath, logRequest } from "@/lib/logging";
 
+/**
+ * Retrieve a webhook
+ *
+ * Returns metadata for the webhook with the given id, or 404 if it does not exist or has expired.
+ */
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const start = performance.now();
   const { id } = await params;
@@ -25,7 +30,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   return response;
 }
 
-// Idempotent: deleting an already-gone webhook still returns 204 (spec R3).
+/**
+ * Delete a webhook
+ *
+ * Removes the webhook with the given id and its captured requests. Idempotent: deleting an already-gone webhook still returns 204 (spec R3).
+ */
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const start = performance.now();
   const { id } = await params;
