@@ -210,6 +210,48 @@ describe("Inspector integration — search keeps a matching request selected", (
   });
 });
 
+describe("Inspector — sidebar outbound links", () => {
+  it("renders both outbound links with correct href targets", async () => {
+    listRequests.mockResolvedValue({ ok: true, value: { items: [], nextCursor: null } });
+    await renderInspector(["w1"]);
+    await waitFor(() => expect(screen.getAllByRole("link").length).toBeGreaterThanOrEqual(2));
+
+    const gh = screen.getByRole("link", { name: "View source on GitHub" });
+    expect(gh.getAttribute("href")).toBe("https://github.com/baoduy/website-hook");
+
+    const dc = screen.getByRole("link", { name: "Visit drunkcoding.net" });
+    expect(dc.getAttribute("href")).toBe("https://drunkcoding.net");
+  });
+
+  it("each link carries aria-label, title, target=_blank, and rel=noopener noreferrer", async () => {
+    listRequests.mockResolvedValue({ ok: true, value: { items: [], nextCursor: null } });
+    await renderInspector(["w1"]);
+    await waitFor(() => expect(screen.getAllByRole("link").length).toBeGreaterThanOrEqual(2));
+
+    for (const name of ["View source on GitHub", "Visit drunkcoding.net"]) {
+      const link = screen.getByRole("link", { name });
+      expect(link.getAttribute("aria-label")).toBe(name);
+      expect(link.getAttribute("title")).toBe(name);
+      expect(link.getAttribute("target")).toBe("_blank");
+      expect(link.getAttribute("rel")).toBe("noopener noreferrer");
+    }
+  });
+
+  it("does not show 'Stored in this browser' text", async () => {
+    listRequests.mockResolvedValue({ ok: true, value: { items: [], nextCursor: null } });
+    await renderInspector(["w1"]);
+    await waitFor(() => expect(screen.getAllByRole("link").length).toBeGreaterThanOrEqual(2));
+    expect(screen.queryByText("Stored in this browser")).toBeNull();
+  });
+
+  it("has no Clear button anywhere in the sidebar", async () => {
+    listRequests.mockResolvedValue({ ok: true, value: { items: [], nextCursor: null } });
+    await renderInspector(["w1"]);
+    await waitFor(() => expect(screen.getAllByRole("link").length).toBeGreaterThanOrEqual(2));
+    expect(screen.queryByRole("button", { name: "Clear" })).toBeNull();
+  });
+});
+
 describe("Inspector integration — captured markup renders inert on every surface", () => {
   it("renders a hostile header value and body as text, never as an element, and produces a safe cURL and blob", async () => {
     const markup = "<script>alert(1)</script>";

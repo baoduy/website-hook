@@ -2,7 +2,18 @@
 export const MAX_BODY_BYTES = 1_048_576;
 export const TTL_DAYS = 7;
 export const MAX_REQUESTS_PER_WEBHOOK = 1000;
+export const CLEANUP_AGE_DAYS = 30;
 export const CREATE_RATE_LIMIT = { windowMs: 60_000, max: 20 };
+
+/** Status-page traffic windows and their bucket size. */
+export const TRAFFIC_WINDOWS = {
+  "24h": { ms: 24 * 60 * 60 * 1000, bucketMs: 60 * 60 * 1000 },
+  "3d": { ms: 3 * 24 * 60 * 60 * 1000, bucketMs: 3 * 60 * 60 * 1000 },
+  "7d": { ms: 7 * 24 * 60 * 60 * 1000, bucketMs: 6 * 60 * 60 * 1000 },
+  "30d": { ms: 30 * 24 * 60 * 60 * 1000, bucketMs: 24 * 60 * 60 * 1000 },
+} as const;
+
+export type TrafficWindow = keyof typeof TRAFFIC_WINDOWS;
 
 // Inspector UI limits. The cap below is a browser-side guardrail on the remembered list only —
 // the service itself imposes no per-browser webhook quota.
