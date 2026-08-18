@@ -3,6 +3,11 @@ import { getTraffic, resolveWindow } from "@/lib/statistics";
 import { getClientIp } from "@/lib/http";
 import { getRequestPath, logRequest } from "@/lib/logging";
 
+/**
+ * Traffic stats
+ *
+ * Returns request-volume statistics over the given time window (see resolveWindow for accepted values), for the statistics dashboard.
+ */
 export async function GET(request: NextRequest) {
   const start = performance.now();
   const window = resolveWindow(request.nextUrl.searchParams.get("window"));

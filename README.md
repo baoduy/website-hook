@@ -17,7 +17,7 @@ after 7 days.
 
 ## Documentation
 
-For the end-to-end architecture, storage layer, hosting-mode differences, and deployment paths, see [`docs/technical-architecture.md`](docs/technical-architecture.md).
+- [`docs/architecture.md`](./docs/architecture.md) — end-to-end technical overview: capture flow, storage layer, schema provisioning, expiry purge, configuration, and deployment paths.
 
 ## API
 
