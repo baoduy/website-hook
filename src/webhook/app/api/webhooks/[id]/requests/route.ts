@@ -30,7 +30,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const cursor = searchParams.get("cursor");
 
   const page = await listCapturedRequests(id, limit, cursor);
-  const response = Response.json({ items: page.items.map(serializeCapturedRequest), nextCursor: page.nextCursor }, { headers: NO_STORE });
+  const response = Response.json(
+    { items: page.items.map(serializeCapturedRequest), nextCursor: page.nextCursor },
+    { headers: NO_STORE },
+  );
   logRequest(request.method, getRequestPath(request), response.status, Math.round(performance.now() - start), {
     webhookId: id,
     clientIp: ip,
