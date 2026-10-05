@@ -1,8 +1,11 @@
 import type { NextRequest } from "next/server";
 import type { CapturedRequest, WebhookInfo } from "./db";
 
+/** Live-data responses must never be served from a browser or edge cache (DRK-2053). */
+export const NO_STORE = { "cache-control": "no-store" };
+
 export function notFound() {
-  return Response.json({ error: "not_found" }, { status: 404 });
+  return Response.json({ error: "not_found" }, { status: 404, headers: NO_STORE });
 }
 
 /**

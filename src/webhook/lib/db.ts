@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { DAY_MS, MAX_REQUESTS_PER_WEBHOOK, getWebhookTtlDays } from "./constants";
 import { ensureSchema, getClient } from "./prisma";
 
@@ -165,12 +166,12 @@ export async function insertCapturedRequest(webhookId: string, input: CapturedRe
   const overflow = count - MAX_REQUESTS_PER_WEBHOOK;
 
   if (overflow > 0) {
-    const oldest = await prisma.capturedRequest.findMany({
-      where: { webhookId },
-      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-      take: overflow,
-      select: { id: true },
-    });
+    const oldest = await prisma.$queryRaw<{ id: string }[]>`
+      SELECT id FROM captured_requests
+      WHERE webhook_id = ${webhookId}
+      ORDER BY created_at ASC, rowid ASC
+      LIMIT ${overflow}
+    `;
 
     await prisma.capturedRequest.deleteMany({
       where: { id: { in: oldest.map((row) => row.id) } },
@@ -188,24 +189,25 @@ export async function listCapturedRequests(
   await ensureSchema(prisma);
 
   const decodedCursor = cursor ? decodeCursor(cursor) : null;
-  const take = limit + 1;
+  const afterCursor = decodedCursor
+    ? Prisma.sql`AND (created_at < ${BigInt(decodedCursor.createdAt)} OR (created_at = ${BigInt(decodedCursor.createdAt)}
+        AND rowid < (SELECT rowid FROM captured_requests WHERE id = ${decodedCursor.id} AND webhook_id = ${webhookId})))`
+    : Prisma.empty;
 
-  const rows = await prisma.capturedRequest.findMany({
-    where: {
-      webhookId,
-      ...(decodedCursor && {
-        OR: [
-          { createdAt: { lt: BigInt(decodedCursor.createdAt) } },
-          { createdAt: BigInt(decodedCursor.createdAt), id: { lt: decodedCursor.id } },
-        ],
-      }),
-    },
-    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-    take,
-  });
+  // Same-millisecond captures tie on created_at; rowid (assigned in insert order) breaks the tie by arrival.
+  // ponytail: VACUUM may renumber rowids on a table without an INTEGER PRIMARY KEY; rebuild the table with one if that bites.
+  const ids = await prisma.$queryRaw<{ id: string }[]>`
+    SELECT id FROM captured_requests
+    WHERE webhook_id = ${webhookId} ${afterCursor}
+    ORDER BY created_at DESC, rowid DESC
+    LIMIT ${limit + 1}
+  `;
 
-  const hasMore = rows.length > limit;
-  const page = rows.slice(0, limit);
+  const hasMore = ids.length > limit;
+  const position = new Map(ids.slice(0, limit).map((row, i) => [row.id, i]));
+  const page = (await prisma.capturedRequest.findMany({ where: { id: { in: [...position.keys()] } } })).sort(
+    (a, b) => position.get(a.id)! - position.get(b.id)!,
+  );
 
   return {
     items: page.map(toCapturedRequest),

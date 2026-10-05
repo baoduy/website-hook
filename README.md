@@ -18,6 +18,7 @@ after 7 days.
 ## Documentation
 
 - [`docs/architecture.md`](./docs/architecture.md) — end-to-end technical overview: capture flow, storage layer, schema provisioning, expiry purge, configuration, and deployment paths.
+- [`docs/technical-architecture.md`](docs/technical-architecture.md) — detailed technical architecture: capture flow, inspector UI and management API, storage layer, schema provisioning, expiry purge, configuration, deployment paths, and the .NET Testcontainers module.
 
 ## API
 

@@ -47,6 +47,20 @@ describe("GET /api/webhooks/:id/requests/:requestId", () => {
     expect(Buffer.from(json.body, "base64").toString()).toBe("payload");
   });
 
+  it("tells every cache not to store the response", async () => {
+    const db = await import("@/lib/db");
+    const { GET } = await import("./route");
+    const webhook = await db.createWebhook();
+    await db.insertCapturedRequest(webhook.id, { method: "GET", path: "/", query: "", headers: {}, body: Buffer.alloc(0), truncated: false });
+    const [stored] = (await db.listCapturedRequests(webhook.id, 1, null)).items;
+
+    const res = await GET(new Request("http://localhost"), {
+      params: Promise.resolve({ id: webhook.id, requestId: stored.id }),
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toBe("no-store");
+  });
+
   it("404s for an unknown webhook or an unknown request id", async () => {
     const db = await import("@/lib/db");
     const { GET } = await import("./route");

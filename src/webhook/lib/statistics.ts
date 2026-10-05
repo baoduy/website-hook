@@ -283,14 +283,18 @@ export async function listWebhookRequests(webhookId: string, limit: number): Pro
   const prisma = getClient();
   await ensureSchema(prisma);
 
+  type RawRequestRow = { id: string; method: string; path: string; createdAt: bigint; bodySize: bigint };
+
   const [total, rows] = await Promise.all([
     prisma.capturedRequest.count({ where: { webhookId } }),
-    prisma.capturedRequest.findMany({
-      where: { webhookId },
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      take: limit,
-      select: { id: true, method: true, path: true, createdAt: true, body: true },
-    }),
+    // rowid breaks same-millisecond ties by arrival, as in lib/db listCapturedRequests.
+    prisma.$queryRaw<RawRequestRow[]>`
+      SELECT id, method, path, created_at AS createdAt, COALESCE(LENGTH(body), 0) AS bodySize
+      FROM captured_requests
+      WHERE webhook_id = ${webhookId}
+      ORDER BY created_at DESC, rowid DESC
+      LIMIT ${limit}
+    `,
   ]);
 
   return {
@@ -299,8 +303,8 @@ export async function listWebhookRequests(webhookId: string, limit: number): Pro
       id: row.id,
       method: row.method,
       path: row.path,
-      createdAt: Number(row.createdAt),
-      bodySize: row.body ? row.body.byteLength : 0,
+      createdAt: toNumber(row.createdAt),
+      bodySize: toNumber(row.bodySize),
     })),
   };
 }
