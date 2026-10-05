@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { CREATE_RATE_LIMIT, getWebhookQuota, isRateLimitDisabled, isWebhookQuotaDisabled } from "@/lib/constants";
 import { countActiveWebhooksByIp, createWebhook } from "@/lib/db";
-import { getClientIp } from "@/lib/http";
+import { getClientIp, requestOrigin } from "@/lib/http";
 import { getRequestPath, logRequest } from "@/lib/logging";
 import { isRateLimited } from "@/lib/rateLimit";
 
@@ -37,11 +37,7 @@ export async function POST(request: NextRequest) {
   }
 
   const webhook = await createWebhook(ip);
-  // Built from the request's own Host header, not `nextUrl` — which some deployments rewrite
-  // to the server's internal hostname rather than what the caller actually connected to.
-  const host = request.headers.get("host") ?? request.nextUrl.host;
-  const protocol = request.headers.get("x-forwarded-proto") ?? request.nextUrl.protocol.replace(":", "");
-  const url = `${protocol}://${host}/${webhook.id}`;
+  const url = `${requestOrigin(request)}/${webhook.id}`;
 
   const response = Response.json(
     { id: webhook.id, url, createdAt: webhook.createdAt, expiresAt: webhook.expiresAt },

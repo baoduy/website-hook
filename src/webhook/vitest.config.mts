@@ -34,6 +34,7 @@ export default defineConfig(({ mode }) => ({
         "components/theme-toggle.tsx",
         "hooks/use-mobile.ts",
         "instrumentation.ts",
+        "scripts/start-ui.mjs",
       ],
       exclude: ["**/*.test.{ts,tsx}", "components/ui/**"],
     },
