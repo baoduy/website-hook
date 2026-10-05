@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
-import { getClientIp, notFound } from "./http";
+import { getClientIp, notFound, requestOrigin } from "./http";
 
 describe("notFound", () => {
   it("returns a 404 not_found body that no cache may store", async () => {
@@ -89,5 +89,39 @@ describe("getClientIp", () => {
     expect(realA).toBe("203.0.113.7");
     expect(realB).toBe("198.51.100.22");
     expect(realA).not.toBe(realB);
+  });
+});
+
+// DRK-2086 §6a D4: the address responses name is the one the caller used — `x-forwarded-proto`
+// and `host` when sent, else the request URL's own protocol and host.
+describe("requestOrigin", () => {
+  it("uses x-forwarded-proto and host when both are sent", () => {
+    const request = new NextRequest("http://website-hook-api:3000/api/webhooks", {
+      headers: { host: "localhost:8080", "x-forwarded-proto": "https" },
+    });
+
+    expect(requestOrigin(request)).toBe("https://localhost:8080");
+  });
+
+  it("uses the request URL's protocol when x-forwarded-proto is absent", () => {
+    const request = new NextRequest("https://website-hook-api:3000/api/webhooks", {
+      headers: { host: "localhost:8080" },
+    });
+
+    expect(requestOrigin(request)).toBe("https://localhost:8080");
+  });
+
+  it("uses the request URL's host when the host header is absent", () => {
+    const request = new NextRequest("http://website-hook-api:3000/api/webhooks", {
+      headers: { "x-forwarded-proto": "https" },
+    });
+
+    expect(requestOrigin(request)).toBe("https://website-hook-api:3000");
+  });
+
+  it("uses the request URL's protocol and host when neither header is sent", () => {
+    const request = new NextRequest("http://website-hook-api:3000/api/webhooks");
+
+    expect(requestOrigin(request)).toBe("http://website-hook-api:3000");
   });
 });

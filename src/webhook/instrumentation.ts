@@ -1,5 +1,7 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
+  // The UI image's Next server, spawned by scripts/start-ui.mjs, keeps no data: nothing to purge.
+  if (process.env.WEBSITE_HOOK_UI_FORWARDER === "1") return;
 
   const { purgeExpiredWebhooks } = await import("./lib/db");
 

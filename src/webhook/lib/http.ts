@@ -24,6 +24,17 @@ export function getClientIp(request: NextRequest): string {
   return `direct:${request.headers.get("x-test-caller") ?? "default"}`;
 }
 
+/**
+ * The address the caller used: `x-forwarded-proto` + `host` header, else the `nextUrl` values (DRK-2086 §3 row 1).
+ */
+export function requestOrigin(request: NextRequest): string {
+  // Built from the request's own Host header, not `nextUrl` — which some deployments rewrite
+  // to the server's internal hostname rather than what the caller actually connected to.
+  const host = request.headers.get("host") ?? request.nextUrl.host;
+  const protocol = request.headers.get("x-forwarded-proto") ?? request.nextUrl.protocol.replace(":", "");
+  return `${protocol}://${host}`;
+}
+
 export function serializeWebhook(webhook: WebhookInfo) {
   return {
     id: webhook.id,

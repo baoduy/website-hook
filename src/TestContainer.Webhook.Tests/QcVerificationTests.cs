@@ -13,7 +13,7 @@ public class QcVerificationTests
     [Fact]
     public void Defaults_MatchDeployedImageAndDockerfilePort()
     {
-        WebsiteHookConfiguration.DefaultImageName.Should().Be("ghcr.io/baoduy/website-hook:latest");
+        WebsiteHookConfiguration.DefaultImageName.Should().Be("ghcr.io/baoduy/website-hook-api:latest");
         WebsiteHookBuilder.WebsiteHookImage.Should().Be(WebsiteHookConfiguration.DefaultImageName);
         WebsiteHookConfiguration.DefaultPort.Should().Be(3000);
         WebsiteHookBuilder.WebsiteHookPort.Should().Be(WebsiteHookConfiguration.DefaultPort);

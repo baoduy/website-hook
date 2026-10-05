@@ -15,6 +15,7 @@
     "test": "vitest run",
     "pretest:coverage": "node scripts/generate-openapi.mjs",
     "test:coverage": "vitest run --coverage",
+    "test:docker": "vitest run --mode docker",
     "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy"

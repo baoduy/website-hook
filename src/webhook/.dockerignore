@@ -5,3 +5,5 @@ data
 *.md
 .env*
 npm-debug.log*
+.open-next
+.wrangler

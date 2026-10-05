@@ -1,12 +1,19 @@
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 
-export default defineConfig({
+// Docker-backed acceptance tests (*.docker.test.ts) build and run the real images; they run only
+// under `npm run test:docker` (`--mode docker`), so `npm test` stays Docker-free (DRK-2086 Q2).
+const DOCKER_TESTS = "**/*.docker.test.ts";
+
+export default defineConfig(({ mode }) => ({
   resolve: {
     alias: { "@": import.meta.dirname },
   },
   test: {
     environment: "node",
-    include: ["**/*.test.ts", "**/*.test.tsx"],
+    include: mode === "docker" ? [DOCKER_TESTS] : ["**/*.test.ts", "**/*.test.tsx"],
+    exclude: mode === "docker" ? configDefaults.exclude : [...configDefaults.exclude, DOCKER_TESTS],
+    // Image builds run `npm ci` and `next build` inside Docker.
+    ...(mode === "docker" && { hookTimeout: 1_200_000, testTimeout: 180_000 }),
     coverage: {
       provider: "v8",
       reporter: ["text", "text-summary", "json-summary"],
@@ -27,8 +34,9 @@ export default defineConfig({
         "components/theme-toggle.tsx",
         "hooks/use-mobile.ts",
         "instrumentation.ts",
+        "scripts/start-ui.mjs",
       ],
       exclude: ["**/*.test.{ts,tsx}", "components/ui/**"],
     },
   },
-});
+}));

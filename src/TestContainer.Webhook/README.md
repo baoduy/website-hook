@@ -1,7 +1,16 @@
 # DKNet.Tests.WebsiteHook
 
 A [Testcontainers](https://testcontainers.com/) .NET module for the
-`ghcr.io/baoduy/website-hook` container image.
+`ghcr.io/baoduy/website-hook-api` container image.
+
+## Breaking changes
+
+- The default image is now `ghcr.io/baoduy/website-hook-api:latest`, the API without the
+  Inspector UI. To run the UI, set its image explicitly with
+  `new WebsiteHookBuilder("ghcr.io/baoduy/website-hook-ui:latest")` and point it at an API
+  through `WEBHOOK_API_URL`.
+- The combined `ghcr.io/baoduy/website-hook` image is retired. Use `website-hook-api` and
+  `website-hook-ui` instead.
 
 ## Installation
 
@@ -23,7 +32,7 @@ await container.StartAsync();
 
 var uri = container.GetServiceUri();
 using var client = new HttpClient();
-var response = await client.GetAsync(uri);
+var response = await client.GetAsync(new Uri(uri, "/openapi.json"));
 
 await container.DisposeAsync();
 ```
@@ -31,7 +40,7 @@ await container.DisposeAsync();
 ## Customization
 
 ```csharp
-var container = new WebsiteHookBuilder("ghcr.io/baoduy/website-hook:latest")
+var container = new WebsiteHookBuilder("ghcr.io/baoduy/website-hook-api:latest")
     .WithPortBinding(8080, 3000)
     .WithEnvironment("DB_PATH", "/data/webhook.db")
     .WithLabel("test", "example")
@@ -43,7 +52,7 @@ var container = new WebsiteHookBuilder("ghcr.io/baoduy/website-hook:latest")
 
 | Setting | Default |
 | --- | --- |
-| Image | `ghcr.io/baoduy/website-hook:latest` |
+| Image | `ghcr.io/baoduy/website-hook-api:latest` |
 | Internal port | `3000` |
 | Wait strategy | HTTP request to `/00000000-0000-0000-0000-000000000000` on port `3000` |
 
