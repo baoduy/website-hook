@@ -52,6 +52,13 @@ describe("GET /api/statistics/traffic", () => {
     expect(json.buckets).toHaveLength(28);
   });
 
+  it("tells every cache not to store the response", async () => {
+    const { GET } = await import("./route");
+    const res = await GET(new NextRequest("http://localhost/api/statistics/traffic?window=24h"));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toBe("no-store");
+  });
+
   it("defaults to 24h when no window is given", async () => {
     const { GET } = await import("./route");
     const res = await GET(new NextRequest("http://localhost/api/statistics/traffic"));

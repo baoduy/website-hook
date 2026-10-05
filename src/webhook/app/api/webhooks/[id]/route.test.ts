@@ -43,6 +43,27 @@ describe("GET /api/webhooks/:id", () => {
   });
 });
 
+describe("GET /api/webhooks/:id — caching", () => {
+  it("tells every cache not to store a found webhook", async () => {
+    const db = await import("@/lib/db");
+    const { GET } = await import("./route");
+    const webhook = await db.createWebhook();
+
+    const res = await GET(new Request("http://localhost"), { params: Promise.resolve({ id: webhook.id }) });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toBe("no-store");
+  });
+
+  it("tells every cache not to store a 404, and keeps the not_found body", async () => {
+    const { GET } = await import("./route");
+
+    const res = await GET(new Request("http://localhost"), { params: Promise.resolve({ id: "unknown" }) });
+    expect(res.status).toBe(404);
+    expect(res.headers.get("cache-control")).toBe("no-store");
+    expect(await res.json()).toEqual({ error: "not_found" });
+  });
+});
+
 describe("DELETE /api/webhooks/:id", () => {
   it("deletes a webhook, and is idempotent when called again on the same id", async () => {
     const db = await import("@/lib/db");

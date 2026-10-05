@@ -55,6 +55,25 @@ describe("GET /api/statistics/cleanup", () => {
   });
 });
 
+describe("GET /api/statistics/cleanup — caching", () => {
+  it("tells every cache not to store the preview", async () => {
+    await seedWebhook("7b19aa03", CLEANUP_AGE_DAYS + 14, 1);
+    const { GET } = await import("./route");
+
+    const res = await GET(new NextRequest("http://localhost/api/statistics/cleanup"));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toBe("no-store");
+  });
+
+  it("tells every cache not to store an empty preview", async () => {
+    const { GET } = await import("./route");
+
+    const res = await GET(new NextRequest("http://localhost/api/statistics/cleanup"));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toBe("no-store");
+  });
+});
+
 describe("DELETE /api/statistics/cleanup", () => {
   it("deletes only over-30-day webhooks, cascading their requests, and reports counts", async () => {
     await seedWebhook("7b19aa03", CLEANUP_AGE_DAYS + 14, 12);
