@@ -11,5 +11,5 @@ public sealed class WebsiteHookResource(string name) : ContainerResource(name), 
     /// <summary>
     /// Gets the primary HTTP endpoint of the website-hook API.
     /// </summary>
-    public EndpointReference PrimaryEndpoint => field ??= new(this, HttpEndpointName);
+    public EndpointReference PrimaryEndpoint => new(this, HttpEndpointName);
 }
