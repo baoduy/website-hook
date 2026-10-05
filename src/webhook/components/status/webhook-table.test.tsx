@@ -115,4 +115,37 @@ describe("WebhookTable", () => {
     fireEvent.change(screen.getByPlaceholderText("Filter by id or path…"), { target: { value: "stripe" } });
     expect(onSearchChange).toHaveBeenCalledWith("stripe");
   });
+
+  describe("webhook idle period (DRK-2061)", () => {
+    const renderTable = (webhook: WebhookListItem) =>
+      render(
+        <WebhookTable
+          webhooks={[webhook]}
+          search=""
+          onSearchChange={() => {}}
+          totalRequests={0}
+          now={now}
+          fetchRequests={() => Promise.resolve(ok({ total: 0, items: [] }))}
+        />,
+      );
+
+    it("shows Never without red colour for a webhook with no expiry", () => {
+      renderTable(row({ expiresAt: null }));
+      const cell = screen.getByText("Never");
+      expect(cell.className).toBe("text-right text-xs text-muted-foreground");
+      expect(screen.queryByText("30d+")).toBeNull(); // recent createdAt: the created column cannot mask the check
+    });
+
+    it("colours an expiry under 36 hours away red", () => {
+      renderTable(row({ expiresAt: now + 60 * 60 * 1000 + 30_000 }));
+      const cell = screen.getByText("in 1h");
+      expect(cell.className).toBe("text-right text-xs text-destructive");
+    });
+
+    it("keeps an expiry days away muted", () => {
+      renderTable(row({ expiresAt: now + 5 * 24 * 60 * 60 * 1000 + 30_000 }));
+      const cell = screen.getByText("in 5d");
+      expect(cell.className).toBe("text-right text-xs text-muted-foreground");
+    });
+  });
 });
