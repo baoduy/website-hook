@@ -258,3 +258,127 @@ describe("durability across a process restart", () => {
     expect(captured.body.toString()).toBe("still here");
   });
 });
+
+describe("same-millisecond captures keep arrival order (DRK-2060)", () => {
+  const capture = (p: string) => ({ method: "GET", path: p, query: "", headers: {}, body: Buffer.alloc(0), truncated: false });
+
+  /** Freezes the clock and hands out ids that sort against arrival order, so an id tiebreak can never pass by chance. */
+  function freezeClockAndReverseIds(now = Date.now()): number {
+    vi.spyOn(Date, "now").mockReturnValue(now);
+    let next = 999_999_999;
+    vi.spyOn(crypto, "randomUUID").mockImplementation(
+      () => `00000000-0000-4000-8000-${String(next--).padStart(12, "0")}` as ReturnType<typeof crypto.randomUUID>,
+    );
+    return now;
+  }
+
+  /** Inserts rows in array order (so rowid follows it), bypassing lib/db. */
+  async function seedCaptures(webhookId: string, rows: { path: string; createdAt: number }[]) {
+    const { ensureSchema, getClient } = await import("./prisma");
+    const prisma = getClient();
+    await ensureSchema(prisma);
+    for (const row of rows) {
+      await prisma.capturedRequest.create({
+        data: { id: crypto.randomUUID(), webhookId, createdAt: BigInt(row.createdAt), method: "GET", path: row.path, query: "", headers: "{}", body: null, truncated: false },
+      });
+    }
+  }
+
+  /** Paths of every stored row for the webhook, read straight from the table (independent of listCapturedRequests). */
+  async function storedPaths(webhookId: string): Promise<string[]> {
+    const { getClient } = await import("./prisma");
+    const rows = await getClient().capturedRequest.findMany({ where: { webhookId }, select: { path: true } });
+    return rows.map((row) => row.path).sort();
+  }
+
+  const seedAt = (createdAt: number, count: number, from = 0) =>
+    Array.from({ length: count }, (_, i) => ({ path: `/${from + i}`, createdAt }));
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("lists same-millisecond captures newest-first in arrival order", async () => {
+    const webhook = await db.createWebhook();
+    freezeClockAndReverseIds();
+    for (let i = 0; i < 10; i++) await db.insertCapturedRequest(webhook.id, capture(`/${i}`));
+
+    const page = await db.listCapturedRequests(webhook.id, 10, null);
+
+    expect(page.items.map((item) => item.path)).toEqual(["/9", "/8", "/7", "/6", "/5", "/4", "/3", "/2", "/1", "/0"]);
+    expect(page.nextCursor).toBeNull();
+  });
+
+  it("pages same-millisecond captures by cursor with no skip or repeat", async () => {
+    const webhook = await db.createWebhook();
+    freezeClockAndReverseIds();
+    for (let i = 0; i < 3; i++) await db.insertCapturedRequest(webhook.id, capture(`/${i}`));
+
+    const firstPage = await db.listCapturedRequests(webhook.id, 2, null);
+    expect(firstPage.items.map((item) => item.path)).toEqual(["/2", "/1"]);
+    expect(firstPage.nextCursor).not.toBeNull();
+
+    const secondPage = await db.listCapturedRequests(webhook.id, 2, firstPage.nextCursor);
+    expect(secondPage.items.map((item) => item.path)).toEqual(["/0"]);
+    expect(secondPage.nextCursor).toBeNull();
+  });
+
+  it("orders by capture time before arrival when the times differ", async () => {
+    const webhook = await db.createWebhook();
+    const now = freezeClockAndReverseIds();
+    await seedCaptures(webhook.id, [
+      { path: "/later-time-first-arrival", createdAt: now },
+      { path: "/earlier-time-second-arrival", createdAt: now - 1000 },
+    ]);
+
+    const page = await db.listCapturedRequests(webhook.id, 10, null);
+
+    expect(page.items.map((item) => item.path)).toEqual(["/later-time-first-arrival", "/earlier-time-second-arrival"]);
+  });
+
+  it.each([
+    { overflow: 1, seeded: MAX_REQUESTS_PER_WEBHOOK },
+    { overflow: 3, seeded: MAX_REQUESTS_PER_WEBHOOK + 2 },
+  ])("prunes the $overflow earliest same-millisecond arrival(s) past the cap", async ({ overflow, seeded }) => {
+    const webhook = await db.createWebhook();
+    const now = freezeClockAndReverseIds();
+    await seedCaptures(webhook.id, seedAt(now, seeded));
+    expect(await storedPaths(webhook.id)).toHaveLength(seeded);
+    expect(await storedPaths(webhook.id)).toContain("/0");
+
+    await db.insertCapturedRequest(webhook.id, capture("/new"));
+
+    const expected = [...seedAt(now, seeded - overflow, overflow).map((row) => row.path), "/new"].sort();
+    expect(await storedPaths(webhook.id)).toEqual(expected);
+  });
+
+  it("prunes by capture time before arrival when the times differ", async () => {
+    const webhook = await db.createWebhook();
+    const now = freezeClockAndReverseIds();
+    await seedCaptures(webhook.id, [{ path: "/later-time-first-arrival", createdAt: now }, ...seedAt(now - 1000, MAX_REQUESTS_PER_WEBHOOK - 1)]);
+
+    await db.insertCapturedRequest(webhook.id, capture("/new"));
+
+    const paths = await storedPaths(webhook.id);
+    expect(paths).toHaveLength(MAX_REQUESTS_PER_WEBHOOK);
+    expect(paths).toContain("/later-time-first-arrival");
+    expect(paths).not.toContain("/0");
+    expect(paths).toContain("/1");
+  });
+
+  it("returns an empty last page when the cursor's row has since been pruned", async () => {
+    const webhook = await db.createWebhook();
+    const now = freezeClockAndReverseIds();
+    await seedCaptures(webhook.id, seedAt(now, MAX_REQUESTS_PER_WEBHOOK));
+    const firstPage = await db.listCapturedRequests(webhook.id, MAX_REQUESTS_PER_WEBHOOK - 1, null);
+    expect(firstPage.items.at(-1)?.path).toBe("/1");
+
+    // Two new captures prune "/0" and the cursor's own row "/1".
+    await db.insertCapturedRequest(webhook.id, capture("/new-a"));
+    await db.insertCapturedRequest(webhook.id, capture("/new-b"));
+    expect(await storedPaths(webhook.id)).not.toContain("/1");
+
+    const secondPage = await db.listCapturedRequests(webhook.id, MAX_REQUESTS_PER_WEBHOOK - 1, firstPage.nextCursor);
+    expect(secondPage).toEqual({ items: [], nextCursor: null });
+  });
+});

@@ -375,3 +375,47 @@ describe("runCleanup", () => {
     expect((await stats.getStorage()).webhooks).toBe(2);
   });
 });
+
+describe("listWebhookRequests — same-millisecond order (DRK-2060)", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  /** Hands out ids that sort against arrival order, so an id tiebreak can never pass by chance. */
+  function reverseIds() {
+    let next = 999_999_999;
+    vi.spyOn(crypto, "randomUUID").mockImplementation(
+      () => `00000000-0000-4000-8000-${String(next--).padStart(12, "0")}` as ReturnType<typeof crypto.randomUUID>,
+    );
+  }
+
+  it("lists same-millisecond seeded rows newest-first in arrival order, with their body sizes", async () => {
+    const w = await seedWebhook();
+    reverseIds();
+    const createdAt = Date.now();
+    for (let i = 0; i < 5; i++) await seedRequest(w, { createdAt, path: `/req/${i}`, body: new Uint8Array(i * 10) });
+
+    const result = await stats.listWebhookRequests(w, 5);
+
+    expect(result.total).toBe(5);
+    expect(result.items.map(({ path, bodySize, createdAt: at }) => ({ path, bodySize, at }))).toEqual([
+      { path: "/req/4", bodySize: 40, at: createdAt },
+      { path: "/req/3", bodySize: 30, at: createdAt },
+      { path: "/req/2", bodySize: 20, at: createdAt },
+      { path: "/req/1", bodySize: 10, at: createdAt },
+      { path: "/req/0", bodySize: 0, at: createdAt },
+    ]);
+  });
+
+  it("orders by capture time before arrival when the times differ", async () => {
+    const w = await seedWebhook();
+    reverseIds();
+    const now = Date.now();
+    await seedRequest(w, { createdAt: now, path: "/later-time-first-arrival" });
+    await seedRequest(w, { createdAt: now - 1000, path: "/earlier-time-second-arrival" });
+
+    const result = await stats.listWebhookRequests(w, 5);
+
+    expect(result.items.map((item) => item.path)).toEqual(["/later-time-first-arrival", "/earlier-time-second-arrival"]);
+  });
+});
