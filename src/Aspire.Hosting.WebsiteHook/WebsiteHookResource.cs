@@ -6,8 +6,10 @@ namespace Aspire.Hosting.ApplicationModel;
 /// <param name="name">The name of the resource.</param>
 public sealed class WebsiteHookResource(string name) : ContainerResource(name), IResourceWithServiceDiscovery
 {
+    internal const string HttpEndpointName = "http";
+
     /// <summary>
     /// Gets the primary HTTP endpoint of the website-hook API.
     /// </summary>
-    public EndpointReference PrimaryEndpoint => throw new NotImplementedException();
+    public EndpointReference PrimaryEndpoint => field ??= new(this, HttpEndpointName);
 }

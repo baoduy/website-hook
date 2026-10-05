@@ -9,7 +9,7 @@ namespace DKNet.Tests.WebsiteHook;
 /// </summary>
 public sealed class WebsiteHookConfiguration : ContainerConfiguration
 {
-    public const string DefaultImageName = "ghcr.io/baoduy/website-hook:latest";
+    public const string DefaultImageName = "ghcr.io/baoduy/website-hook-api:latest";
     public const int DefaultPort = 3000;
 
     public WebsiteHookConfiguration(
