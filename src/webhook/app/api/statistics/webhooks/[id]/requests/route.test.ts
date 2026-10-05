@@ -58,6 +58,17 @@ describe("GET /api/statistics/webhooks/:id/requests", () => {
     expect("headers" in json.items[0]).toBe(false);
   });
 
+  it("tells every cache not to store the response", async () => {
+    await seedWebhook("w1", 1);
+    const { GET } = await import("./route");
+
+    const res = await GET(new NextRequest("http://localhost/api/statistics/webhooks/w1/requests"), {
+      params: Promise.resolve({ id: "w1" }),
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toBe("no-store");
+  });
+
   it("honours an explicit limit and caps it at 100", async () => {
     await seedWebhook("w1", 3);
     const { GET } = await import("./route");

@@ -22,6 +22,14 @@ describe("GET /openapi.json", () => {
     expect(body.paths).toEqual({ "/webhooks": { get: { summary: "List webhooks" } } });
   });
 
+  it("leaves the static document cacheable (no cache-control added)", async () => {
+    const { GET } = await import("./route");
+
+    const response = await GET(new NextRequest("https://webhook.lik.is/openapi.json"));
+
+    expect(response.headers.get("cache-control")).toBeNull();
+  });
+
   it("serves the document with the localhost request's origin as the default server", async () => {
     const { GET } = await import("./route");
     const request = new NextRequest("http://localhost:3000/openapi.json");

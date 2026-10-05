@@ -41,6 +41,18 @@ describe("GET /api/webhooks/:id/requests", () => {
     expect(secondJson.nextCursor).toBeNull();
   });
 
+  it("tells every cache not to store the response", async () => {
+    const db = await import("@/lib/db");
+    const { GET } = await import("./route");
+    const webhook = await db.createWebhook();
+
+    const res = await GET(new NextRequest(`http://localhost/api/webhooks/${webhook.id}/requests`), {
+      params: Promise.resolve({ id: webhook.id }),
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toBe("no-store");
+  });
+
   it("404s for an unknown webhook", async () => {
     const { GET } = await import("./route");
     const res = await GET(new NextRequest("http://localhost/api/webhooks/unknown/requests"), {

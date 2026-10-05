@@ -52,6 +52,15 @@ describe("GET /api/statistics/webhooks", () => {
     expect(json.items[0].expiresAt).toBe(json.items[0].lastActivityAt + 7 * 24 * 60 * 60 * 1000);
   });
 
+  it("tells every cache not to store the response", async () => {
+    await seedWebhook("e3c1b7a4", "/stripe/events");
+    const { GET } = await import("./route");
+
+    const res = await GET(new NextRequest("http://localhost/api/statistics/webhooks"));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toBe("no-store");
+  });
+
   it("narrows by the q filter (id or captured path)", async () => {
     await seedWebhook("e3c1b7a4", "/stripe/events");
     await seedWebhook("9d40f2c8", "/health");

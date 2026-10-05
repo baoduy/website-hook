@@ -56,6 +56,13 @@ describe("GET /api/statistics/storage", () => {
     });
   });
 
+  it("tells every cache not to store the response, so a cleanup shows fresh counts", async () => {
+    const { GET } = await import("./route");
+    const res = await GET(new NextRequest("http://localhost/api/statistics/storage"));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toBe("no-store");
+  });
+
   it("reports zero totals for an empty store", async () => {
     const { GET } = await import("./route");
     const res = await GET(new NextRequest("http://localhost/api/statistics/storage"));
