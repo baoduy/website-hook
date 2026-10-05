@@ -60,8 +60,9 @@ describe("StatPills", () => {
     });
 
     it("states the webhook's own 30-day idle period in the expiry tooltip", async () => {
-      renderPills(<StatPills webhook={summary({ lastActivityAt: now, expiresAt: now + 30 * DAY })} now={now} />);
-      expect(within(expiresPill()).getByText("in 30d")).toBeTruthy();
+      const lastActivityAt = now - 2 * DAY; // idle gap separates "since last hit" from "from now"
+      renderPills(<StatPills webhook={summary({ lastActivityAt, expiresAt: lastActivityAt + 30 * DAY })} now={now} />);
+      expect(within(expiresPill()).getByText("in 28d")).toBeTruthy();
       expect(await tooltipText()).toBe("Purged after 30 idle days — any request resets the clock");
     });
 
