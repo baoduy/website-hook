@@ -5,6 +5,8 @@ URL to an external system. Inspect the method, path, query, headers, and body of
 through the API or optional UI. No account is needed. Idle webhooks purge themselves after
 7 days by default. Change the period, or turn off expiry, with `WEBHOOK_TTL_DAYS`.
 
+![website-hook runtime architecture](docs/images/runtime-architecture.png)
+
 ## Repository layout
 
 | Path | Description |

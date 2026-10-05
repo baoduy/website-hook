@@ -1,0 +1,420 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "website-hook Runtime Architecture",
+    "output": ".archify/architecture-runtime-20261005-154109/website-hook-runtime.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/baoduy/website-hook.git",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "99f72a4ea9aaeb5bf971cbe72403329b08be1e0d"
+    }
+  },
+  "components": [
+    {
+      "id": "browser",
+      "type": "external",
+      "label": "Developer browser",
+      "sublabel": "Inspector / Status SPA",
+      "pos": [
+        40,
+        40
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src/webhook/lib/inspector/api.ts",
+          "line": 49,
+          "end_line": 96,
+          "label": "fetch /api/webhooks"
+        },
+        {
+          "path": "src/webhook/components/inspector/use-requests.ts",
+          "line": 88,
+          "label": "4 s polling"
+        }
+      ]
+    },
+    {
+      "id": "forwarder",
+      "type": "frontend",
+      "label": "UI forwarder",
+      "sublabel": "start-ui.mjs · host :8080",
+      "tag": "strips caller IP headers",
+      "pos": [
+        340,
+        40
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src/webhook/scripts/start-ui.mjs",
+          "line": 37,
+          "end_line": 104,
+          "label": "path split + forwarding"
+        },
+        {
+          "path": "docker-compose.yml",
+          "line": 13,
+          "end_line": 22,
+          "label": "website-hook-ui service"
+        }
+      ]
+    },
+    {
+      "id": "nextui",
+      "type": "frontend",
+      "label": "Next.js UI server",
+      "sublabel": "/ · /status · 127.0.0.1:3001",
+      "pos": [
+        660,
+        40
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src/webhook/scripts/start-ui.mjs",
+          "line": 120,
+          "end_line": 129,
+          "label": "spawned on loopback"
+        },
+        {
+          "path": "src/webhook/app/page.tsx",
+          "line": 1,
+          "label": "Inspector page"
+        }
+      ]
+    },
+    {
+      "id": "sender",
+      "type": "external",
+      "label": "External sender",
+      "sublabel": "system under test",
+      "pos": [
+        40,
+        380
+      ],
+      "size": [
+        160,
+        64
+      ]
+    },
+    {
+      "id": "mgmt",
+      "type": "backend",
+      "label": "Management API",
+      "sublabel": "/api/webhooks/* · /api/statistics",
+      "tag": "429 rate / quota",
+      "pos": [
+        680,
+        220
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src/webhook/app/api/webhooks/route.ts",
+          "line": 13,
+          "end_line": 51,
+          "label": "create + limits"
+        },
+        {
+          "path": "src/webhook/lib/rateLimit.ts",
+          "line": 2,
+          "end_line": 7,
+          "label": "in-memory limiter"
+        }
+      ]
+    },
+    {
+      "id": "capture",
+      "type": "backend",
+      "label": "Capture route",
+      "sublabel": "/:id/*path · always 200",
+      "tag": "404 if missing/expired",
+      "pos": [
+        340,
+        380
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src/webhook/app/[id]/[[...path]]/route.ts",
+          "line": 10,
+          "end_line": 41,
+          "label": "capture handler"
+        },
+        {
+          "path": "src/webhook/lib/http.ts",
+          "line": 67,
+          "label": "readBoundedBody 1 MiB"
+        }
+      ]
+    },
+    {
+      "id": "store",
+      "type": "backend",
+      "label": "Storage layer",
+      "sublabel": "lib/db.ts · Prisma client",
+      "pos": [
+        680,
+        380
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src/webhook/lib/db.ts",
+          "line": 146,
+          "end_line": 180,
+          "label": "insert + prune 1,000"
+        },
+        {
+          "path": "src/webhook/lib/prisma.ts",
+          "line": 19,
+          "end_line": 100,
+          "label": "runtime probe + client"
+        }
+      ]
+    },
+    {
+      "id": "purge",
+      "type": "backend",
+      "label": "Expiry purge",
+      "sublabel": "hourly timer / CF cron",
+      "pos": [
+        340,
+        560
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src/webhook/instrumentation.ts",
+          "line": 1,
+          "end_line": 28,
+          "label": "setInterval + scheduled()"
+        },
+        {
+          "path": "src/webhook/lib/db.ts",
+          "line": 230,
+          "end_line": 239,
+          "label": "purgeExpiredWebhooks"
+        }
+      ]
+    },
+    {
+      "id": "sqlite",
+      "type": "database",
+      "label": "SQLite file",
+      "sublabel": "/data/webhook.db volume",
+      "pos": [
+        1010,
+        380
+      ],
+      "size": [
+        180,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src/webhook/lib/prisma.ts",
+          "line": 96,
+          "end_line": 98,
+          "label": "file: datasource"
+        },
+        {
+          "path": "docker-compose.yml",
+          "line": 6,
+          "end_line": 10,
+          "label": "DB_PATH + volume"
+        }
+      ]
+    },
+    {
+      "id": "d1",
+      "type": "database",
+      "label": "Cloudflare D1",
+      "sublabel": "Workers mode · env.DB",
+      "pos": [
+        1010,
+        560
+      ],
+      "size": [
+        180,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src/webhook/lib/prisma.ts",
+          "line": 83,
+          "end_line": 87,
+          "label": "PrismaD1 adapter"
+        },
+        {
+          "path": "src/webhook/wrangler.jsonc",
+          "line": 13,
+          "end_line": 23,
+          "label": "D1 binding + cron"
+        }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "website-hook-ui container (keeps no data)",
+      "wraps": [
+        "forwarder",
+        "nextui"
+      ]
+    },
+    {
+      "kind": "security-group",
+      "label": "website-hook-api :3000 · no auth, UUID is the key",
+      "wraps": [
+        "mgmt",
+        "capture",
+        "store",
+        "purge"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Cloudflare account",
+      "wraps": [
+        "d1"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "send-capture",
+      "from": "sender",
+      "to": "capture",
+      "label": "HTTP any method",
+      "variant": "emphasis"
+    },
+    {
+      "id": "capture-store",
+      "from": "capture",
+      "to": "store",
+      "label": "insert + touch",
+      "variant": "emphasis"
+    },
+    {
+      "id": "store-sqlite",
+      "from": "store",
+      "to": "sqlite",
+      "label": "Prisma SQL",
+      "variant": "emphasis"
+    },
+    {
+      "id": "browser-forwarder",
+      "from": "browser",
+      "to": "forwarder",
+      "label": "HTTP :8080"
+    },
+    {
+      "id": "forwarder-nextui",
+      "from": "forwarder",
+      "to": "nextui",
+      "label": "UI paths"
+    },
+    {
+      "id": "forwarder-mgmt",
+      "from": "forwarder",
+      "to": "mgmt",
+      "label": "forward to API URL",
+      "fromSide": "bottom",
+      "toSide": "left"
+    },
+    {
+      "id": "mgmt-store",
+      "from": "mgmt",
+      "to": "store",
+      "label": "CRUD + list",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "purge-store",
+      "from": "purge",
+      "to": "store",
+      "label": "delete idle",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "bottom"
+    },
+    {
+      "id": "store-d1",
+      "from": "store",
+      "to": "d1",
+      "label": "D1 adapter",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "left"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Capture contract",
+      "items": [
+        "Always answers 200; a storage failure is logged, never surfaced",
+        "Body read up to 1 MiB, flagged truncated beyond that",
+        "Oldest rows pruned past 1,000 requests per webhook",
+        "Each capture bumps lastActivityAt, pushing back expiry"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Trust boundary",
+      "items": [
+        "No accounts: the webhook UUID in the URL is the only key",
+        "Create limit 20/min/IP is in-memory per instance and off by default",
+        "Optional per-IP active-webhook quota (WEBHOOK_QUOTA)",
+        "UI forwarder overwrites X-Forwarded-For and drops x-real-ip / forwarded",
+        "Forwarder only calls WEBHOOK_API_URL; unreachable API returns 502"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Two runtimes",
+      "items": [
+        "Node / Docker: SQLite file, schema ensured on first use, hourly setInterval purge",
+        "Cloudflare Workers: D1 via env.DB, migrations at deploy, cron 0 * * * *",
+        "Driver chosen by probing the Cloudflare context, not NEXT_RUNTIME"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Other consumers",
+      "items": [
+        "Testcontainers module (DKNet.Tests.WebsiteHook) runs the API image in .NET tests",
+        "Aspire hosting package adds the API resource; UI is opt-in",
+        "OpenAPI at /openapi.json, Scalar reference at /api/reference"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "0724d7b4-8ce9-4778-b570-b07ab23aa629",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/Users/steven/_CODE/GIT/website-hook/.archify/architecture-runtime-20261005-154109/candidate.json",
+  "output": "/Users/steven/_CODE/GIT/website-hook/.archify/architecture-runtime-20261005-154109/website-hook-runtime.html",
+  "specification": {
+    "sha256": "df02c9e7add0e8b740589b52a57b6927a211596bbf02f8269ef3d63fbd9ea364",
+    "bytes": 9431
+  },
+  "artifact": {
+    "sha256": "c542a0775ce143d0c5578d3c50b2e6a005206d471248a02696b07323fa65d594",
+    "bytes": 771334
+  }
+}
