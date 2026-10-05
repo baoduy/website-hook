@@ -62,6 +62,7 @@ describe("Scenario: A caller cannot fake its address through the UI", () => {
   it("the API refuses the webhook because the quota for 203.0.113.7 is used", async () => {
     // Given the per-IP quota allows 1 webhook per caller
     vi.stubEnv("WEBHOOK_QUOTA", "1");
+    vi.stubEnv("DISABLE_WEBHOOK_QUOTA", "false");
     // And caller "203.0.113.7" already owns 1 webhook
     const first = await createWebhook(
       forwardHeaders({ host: UI_HOST }, "203.0.113.7") as Record<string, string>,

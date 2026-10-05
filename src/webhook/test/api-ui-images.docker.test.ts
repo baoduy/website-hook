@@ -275,7 +275,7 @@ describe("UI image", () => {
 
     it("the API refuses the webhook because the caller's own quota is used", async () => {
       // Given the per-IP quota allows 1 webhook per caller
-      await startLinkedUi({ WEBHOOK_QUOTA: "1" });
+      await startLinkedUi({ WEBHOOK_QUOTA: "1", DISABLE_WEBHOOK_QUOTA: "false" });
       // And the caller already owns 1 webhook (the socket address the UI sees stands in for
       // "203.0.113.7"; the literal address is proven at the forwarder seam)
       const first = await fetch(`${UI_ADDRESS}/api/webhooks`, { method: "POST" });
