@@ -26,7 +26,7 @@ vi.mock("@/lib/statistics/api", () => {
   const webhooks: WebhookList = {
     items: [{ id: "e3c1b7a4", createdAt: Date.now(), lastActivityAt: Date.now(), requestCount: 1, payloadBytes: 10, expiresAt: Date.now() + 1000 }],
   };
-  const cleanup: CleanupPreview = { webhooks: [{ id: "7b19aa03", requestCount: 12 }], totalRequests: 12 };
+  const cleanup: CleanupPreview = { webhooks: [{ id: "7b19aa03", requestCount: 12 }], totalRequests: 12, webhookTtlDays: 7 };
 
   return {
     getTraffic: vi.fn().mockResolvedValue({ ok: true, value: traffic }),

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { CleanupPreview, Storage } from "@/lib/statistics";
-import { formatBytes, formatNumber } from "./formatting";
+import { formatBytes, formatNumber, retentionNote } from "./formatting";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -127,10 +127,13 @@ export function RetentionPanel({
             </AlertDialogContent>
           )}
         </AlertDialog>
-        <p className="text-[11px] leading-relaxed text-muted-foreground">
-          Idle webhooks already self-purge after 7 days. This clears anything created over 30 days ago, however recently
-          it was hit.
-        </p>
+        {preview && (
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            {retentionNote(preview.webhookTtlDays)}
+            {preview.webhookTtlDays !== null &&
+              " This clears anything created over 30 days ago, however recently it was hit."}
+          </p>
+        )}
       </CardFooter>
     </Card>
   );

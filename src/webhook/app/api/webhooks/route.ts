@@ -8,7 +8,7 @@ import { isRateLimited } from "@/lib/rateLimit";
 /**
  * Create a webhook
  *
- * Allocates a new disposable webhook endpoint for the caller's IP and returns its URL, creation time, and expiry. Subject to rate limiting and an optional per-IP quota on active webhooks.
+ * Allocates a new disposable webhook endpoint for the caller's IP and returns its URL, creation time, and expiry. The webhook keeps the idle period set by `WEBHOOK_TTL_DAYS` when it is created; `expiresAt` is null when the webhook never expires. Subject to rate limiting and an optional per-IP quota on active webhooks.
  */
 export async function POST(request: NextRequest) {
   const start = performance.now();

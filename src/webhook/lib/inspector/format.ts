@@ -1,4 +1,4 @@
-import { EXPIRY_WARNING_MS } from "@/lib/constants";
+import { DAY_MS, EXPIRY_WARNING_MS } from "@/lib/constants";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -11,8 +11,9 @@ export function relativeTime(timestamp: number, now: number): string {
   return `${Math.floor(seconds / 86400)}d ago`;
 }
 
-/** "in 42m" / "in 5h" / "in 3d". */
-export function timeUntil(timestamp: number, now: number): string {
+/** "in 42m" / "in 5h" / "in 3d"; "Never" when there is no expiry. */
+export function timeUntil(timestamp: number | null, now: number): string {
+  if (timestamp === null) return "Never";
   const seconds = Math.max(0, Math.floor((timestamp - now) / 1000));
   if (seconds < 3600) return `in ${Math.floor(seconds / 60)}m`;
   if (seconds < 86400) return `in ${Math.floor(seconds / 3600)}h`;
@@ -40,6 +41,18 @@ export function shortId(id: string): string {
   return id.length <= 12 ? id : `${id.slice(0, 8)}…${id.slice(-4)}`;
 }
 
-export function isExpiringSoon(expiresAt: number, now: number): boolean {
+export function isExpiringSoon(expiresAt: number | null, now: number): boolean {
+  if (expiresAt === null) return false;
   return expiresAt - now < EXPIRY_WARNING_MS;
+}
+
+/** The webhook's own idle period in days, or `null` when it never expires. */
+export function idleDays(expiresAt: number | null, lastActivityAt: number): number | null {
+  return expiresAt === null ? null : (expiresAt - lastActivityAt) / DAY_MS;
+}
+
+/** Expiry tooltip stating the webhook's own idle period, or that it never expires. */
+export function expiryTooltip(expiresAt: number | null, lastActivityAt: number): string {
+  const days = idleDays(expiresAt, lastActivityAt);
+  return days === null ? "Never expires — kept until deleted" : `Purged after ${days} idle days — any request resets the clock`;
 }

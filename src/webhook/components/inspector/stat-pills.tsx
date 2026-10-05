@@ -1,6 +1,6 @@
-import { MAX_REQUESTS_PER_WEBHOOK, TTL_DAYS } from "@/lib/constants";
+import { MAX_REQUESTS_PER_WEBHOOK } from "@/lib/constants";
 import type { WebhookSummary } from "@/lib/inspector/api";
-import { formatStamp, isExpiringSoon, relativeTime, timeUntil } from "@/lib/inspector/format";
+import { expiryTooltip, formatStamp, isExpiringSoon, relativeTime, timeUntil } from "@/lib/inspector/format";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -58,7 +58,7 @@ export function StatPills({ webhook, now }: { webhook: WebhookSummary; now: numb
       <Pill
         label="Expires"
         value={timeUntil(webhook.expiresAt, now)}
-        tooltip={`Purged after ${TTL_DAYS} idle days — any request resets the clock`}
+        tooltip={expiryTooltip(webhook.expiresAt, webhook.lastActivityAt)}
         warn={expiring}
       />
     </div>

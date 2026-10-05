@@ -13,6 +13,7 @@ model Webhook {
   createdAt        BigInt            @map("created_at")
   lastActivityAt   BigInt            @map("last_activity_at")
   creatorIp        String            @map("creator_ip")
+  ttlDays          Int?              @map("ttl_days")
   capturedRequests CapturedRequest[]
 
   @@map("webhooks")

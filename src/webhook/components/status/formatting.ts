@@ -17,12 +17,25 @@ export function relativeTime(now: number, ts: number): string {
   return `${Math.floor(d / 86400)}d ago`;
 }
 
-export function untilTime(now: number, ts: number): string {
+export function untilTime(now: number, ts: number | null): string {
+  if (ts === null) return "Never";
   const d = Math.floor((ts - now) / 1000);
   if (d <= 0) return "expired";
   if (d < 3600) return `in ${Math.floor(d / 60)}m`;
   if (d < 86400) return `in ${Math.floor(d / 3600)}h`;
   return `in ${Math.floor(d / 86400)}d`;
+}
+
+/** True when the webhook expires in under 36 hours; never for a webhook with no expiry. */
+export function isExpiryUrgent(now: number, expiresAt: number | null): boolean {
+  return expiresAt !== null && expiresAt - now < 36 * 60 * 60 * 1000;
+}
+
+/** Status-page retention note for the deployment's current idle period (`null` = never). */
+export function retentionNote(webhookTtlDays: number | null): string {
+  return webhookTtlDays === null
+    ? "Webhooks never expire on this deployment."
+    : `New webhooks are deleted after ${webhookTtlDays} idle days.`;
 }
 
 export function bucketLabel(t: number, window: string): string {
