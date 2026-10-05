@@ -119,8 +119,9 @@ describe("API image", () => {
       container,
       "node",
       "-e",
-      `const { PrismaClient } = require("@prisma/client");
-       const prisma = new PrismaClient({ datasourceUrl: "file:" + process.env.DB_PATH });
+      `const { PrismaBetterSqlite3 } = require("@prisma/adapter-better-sqlite3");
+       const { PrismaClient } = require("@prisma/client");
+       const prisma = new PrismaClient({ adapter: new PrismaBetterSqlite3({ url: "file:" + process.env.DB_PATH }) });
        const now = BigInt(Date.now());
        prisma.webhook
          .create({ data: { id: process.argv[1], createdAt: now, lastActivityAt: now, creatorIp: "seed", ttlDays: 7 } })

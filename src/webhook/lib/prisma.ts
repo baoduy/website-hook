@@ -92,9 +92,11 @@ export function getClient(): PrismaClient {
   const fs = require("node:fs");
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const path = require("node:path");
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { PrismaBetterSqlite3 } = require("@prisma/adapter-better-sqlite3");
 
   const resolvedPath = DB_PATH.startsWith("/") ? DB_PATH : `${process.cwd()}/${DB_PATH}`;
   fs.mkdirSync(path.dirname(resolvedPath), { recursive: true });
-  client = new PrismaClient({ datasourceUrl: `file:${resolvedPath}` });
+  client = new PrismaClient({ adapter: new PrismaBetterSqlite3({ url: `file:${resolvedPath}` }) });
   return client;
 }

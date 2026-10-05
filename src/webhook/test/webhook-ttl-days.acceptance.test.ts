@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import { PrismaClient } from "@prisma/client";
 import document from "@/lib/openapi.json";
 
@@ -314,7 +315,7 @@ describe("Scenario: Webhooks that exist at rollout get 7 days", () => {
   it('gives "legacy-hook" an idle period of 7 days when rolled out with the setting at "0"', async () => {
     // Before the rollout: the database holds only the migrations that existed before this change.
     const dbPath = process.env.DB_PATH!;
-    const legacy = new PrismaClient({ datasourceUrl: `file:${dbPath}` });
+    const legacy = new PrismaClient({ adapter: new PrismaBetterSqlite3({ url: `file:${dbPath}` }) });
     for (const migration of ["0_init", "1_webhook_creator_ip"]) {
       const sql = fs
         .readFileSync(path.join(process.cwd(), "prisma", "migrations", migration, "migration.sql"), "utf-8")

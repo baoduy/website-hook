@@ -3,6 +3,7 @@ const { spawn } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 
+const { PrismaBetterSqlite3 } = require("@prisma/adapter-better-sqlite3");
 const { PrismaClient } = require("@prisma/client");
 
 const DB_PATH = process.env.DB_PATH ?? "/data/webhook.db";
@@ -18,7 +19,7 @@ async function provisionSchema() {
     .map((statement) => statement.trim())
     .filter((statement) => statement.length > 0);
 
-  const prisma = new PrismaClient({ datasourceUrl: dbUrl });
+  const prisma = new PrismaClient({ adapter: new PrismaBetterSqlite3({ url: dbUrl }) });
   try {
     for (const statement of statements) {
       await prisma.$executeRawUnsafe(`${statement};`);

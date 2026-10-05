@@ -7,6 +7,8 @@ FROM node:${NODE_VERSION}-slim AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm npm ci --ignore-scripts
+# --ignore-scripts skips better-sqlite3's prebuilt-binary download; run just that one.
+RUN npm rebuild better-sqlite3
 
 FROM node:${NODE_VERSION}-slim AS source
 WORKDIR /app
