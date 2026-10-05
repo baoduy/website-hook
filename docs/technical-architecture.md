@@ -74,7 +74,7 @@ The default SQLite path is `./data/webhook.db` for local development and `/data/
 
 ## Expiry purge
 
-Idle webhooks and their captured requests are deleted after 7 days of inactivity. The actual TTL enforcement is in [`purgeExpiredWebhooks()`](../src/webhook/lib/db.ts); the trigger differs by hosting mode.
+Idle webhooks and their captured requests are deleted after 7 days of inactivity by default. A new webhook can use a different idle period, or never expire, by setting `WEBHOOK_TTL_DAYS`; each webhook keeps the period it was created with, so changing the setting only affects webhooks created afterward. The actual TTL enforcement is in [`purgeExpiredWebhooks()`](../src/webhook/lib/db.ts); the trigger differs by hosting mode.
 
 | | Node.js / Docker | Cloudflare Workers |
 |---|---|---|
@@ -92,6 +92,7 @@ Reads also re-check expiry defensively, but purge does not depend on a URL being
 | `DISABLE_RATE_LIMIT` | (disabled) | Set to `"true"`, `"1"`, or `"yes"` to disable the 20/min/IP limit on webhook creation. The default is **rate limiting disabled**; set to `"false"` to enable. |
 | `WEBHOOK_QUOTA` | (none) | Maximum active webhooks per IP when quota is enabled. |
 | `DISABLE_WEBHOOK_QUOTA` | (disabled) | Set to `"true"`, `"1"`, or `"yes"` to disable the per-IP webhook quota. The default is **quota disabled**; set to `"false"` to enable. |
+| `WEBHOOK_TTL_DAYS` | `7` | Idle days before a new webhook expires; `0` means never. Applies only to webhooks created after the change. Invalid values fall back to 7 with a logged warning. |
 
 The rate limiter is an in-memory store per instance, so it is not shared across replicas. Per-IP quota uses the same `getClientIp()` logic as rate limiting.
 
