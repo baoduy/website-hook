@@ -6,7 +6,8 @@ export type CreatedWebhook = {
   id: string;
   url: string;
   createdAt: number;
-  expiresAt: number;
+  /** `null` when the webhook never expires. */
+  expiresAt: number | null;
 };
 
 export type WebhookSummary = {
@@ -14,7 +15,8 @@ export type WebhookSummary = {
   createdAt: number;
   lastActivityAt: number;
   requestCount: number;
-  expiresAt: number;
+  /** `null` when the webhook never expires. */
+  expiresAt: number | null;
 };
 
 export type CapturedRequest = {

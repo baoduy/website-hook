@@ -17,12 +17,26 @@ export function relativeTime(now: number, ts: number): string {
   return `${Math.floor(d / 86400)}d ago`;
 }
 
-export function untilTime(now: number, ts: number): string {
+export function untilTime(now: number, ts: number | null): string {
+  if (ts === null) throw new Error("Not implemented");
   const d = Math.floor((ts - now) / 1000);
   if (d <= 0) return "expired";
   if (d < 3600) return `in ${Math.floor(d / 60)}m`;
   if (d < 86400) return `in ${Math.floor(d / 3600)}h`;
   return `in ${Math.floor(d / 86400)}d`;
+}
+
+/** True when the webhook expires in under 36 hours; never for a webhook with no expiry. */
+export function isExpiryUrgent(now: number, expiresAt: number | null): boolean {
+  void now;
+  void expiresAt;
+  throw new Error("Not implemented");
+}
+
+/** Status-page retention note for the deployment's current idle period (`null` = never). */
+export function retentionNote(webhookTtlDays: number | null): string {
+  void webhookTtlDays;
+  throw new Error("Not implemented");
 }
 
 export function bucketLabel(t: number, window: string): string {
