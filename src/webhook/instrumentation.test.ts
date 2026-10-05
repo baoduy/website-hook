@@ -20,6 +20,8 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllEnvs();
+  vi.restoreAllMocks();
   process.env.NEXT_RUNTIME = originalRuntime;
   fs.rmSync(dir, { recursive: true, force: true });
 });
@@ -46,6 +48,29 @@ describe("register", () => {
     await vi.advanceTimersByTimeAsync(SWEEP_INTERVAL_MS * 2);
 
     expect(purgeSpy).not.toHaveBeenCalled();
+  });
+
+  it("schedules no sweep in the UI image's Next server (WEBSITE_HOOK_UI_FORWARDER=1) — the UI keeps no data", async () => {
+    process.env.NEXT_RUNTIME = "nodejs";
+    vi.stubEnv("WEBSITE_HOOK_UI_FORWARDER", "1");
+    const setIntervalSpy = vi.spyOn(globalThis, "setInterval");
+    const { register } = await import("./instrumentation");
+
+    await register();
+
+    expect(setIntervalSpy).not.toHaveBeenCalled();
+  });
+
+  it("schedules the hourly sweep when WEBSITE_HOOK_UI_FORWARDER is unset", async () => {
+    process.env.NEXT_RUNTIME = "nodejs";
+    vi.stubEnv("WEBSITE_HOOK_UI_FORWARDER", undefined);
+    const setIntervalSpy = vi.spyOn(globalThis, "setInterval").mockReturnValue(0 as never);
+    const { register } = await import("./instrumentation");
+
+    await register();
+
+    expect(setIntervalSpy).toHaveBeenCalledTimes(1);
+    expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 3_600_000);
   });
 
   it("purges an idle webhook and its captured data on the hourly sweep — real enforcement, not a read-time filter", async () => {

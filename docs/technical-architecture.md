@@ -74,7 +74,7 @@ The default SQLite path is `./data/webhook.db` for local development and `/data/
 
 ## Expiry purge
 
-Idle webhooks and their captured requests are deleted after 7 days of inactivity. The actual TTL enforcement is in [`purgeExpiredWebhooks()`](../src/webhook/lib/db.ts); the trigger differs by hosting mode.
+Idle webhooks and their captured requests are deleted after 7 days of inactivity by default. A new webhook can use a different idle period, or never expire, by setting `WEBHOOK_TTL_DAYS`; each webhook keeps the period it was created with, so changing the setting only affects webhooks created afterward. The actual TTL enforcement is in [`purgeExpiredWebhooks()`](../src/webhook/lib/db.ts); the trigger differs by hosting mode.
 
 | | Node.js / Docker | Cloudflare Workers |
 |---|---|---|
@@ -92,6 +92,7 @@ Reads also re-check expiry defensively, but purge does not depend on a URL being
 | `DISABLE_RATE_LIMIT` | (disabled) | Set to `"true"`, `"1"`, or `"yes"` to disable the 20/min/IP limit on webhook creation. The default is **rate limiting disabled**; set to `"false"` to enable. |
 | `WEBHOOK_QUOTA` | (none) | Maximum active webhooks per IP when quota is enabled. |
 | `DISABLE_WEBHOOK_QUOTA` | (disabled) | Set to `"true"`, `"1"`, or `"yes"` to disable the per-IP webhook quota. The default is **quota disabled**; set to `"false"` to enable. |
+| `WEBHOOK_TTL_DAYS` | `7` | Idle days before a new webhook expires; `0` means never. Applies only to webhooks created after the change. Invalid values fall back to 7 with a logged warning. |
 
 The rate limiter is an in-memory store per instance, so it is not shared across replicas. Per-IP quota uses the same `getClientIp()` logic as rate limiting.
 
@@ -99,18 +100,22 @@ The rate limiter is an in-memory store per instance, so it is not shared across 
 
 ### Docker image and Compose
 
-The container image is built from [`src/webhook/Dockerfile`](../src/webhook/Dockerfile) and published to `ghcr.io/baoduy/website-hook:latest` by [`.github/workflows/publish.yml`](../.github/workflows/publish.yml). It runs the Next.js standalone output under a non-root user and provisions the SQLite schema on startup.
+[`src/webhook/Dockerfile`](../src/webhook/Dockerfile) has `api` and `ui` targets. [`.github/workflows/publish.yml`](../.github/workflows/publish.yml) publishes them as `ghcr.io/baoduy/website-hook-api` and `ghcr.io/baoduy/website-hook-ui`. The API image serves capture URLs, `/api/...`, `/api/reference`, and `/openapi.json`; `/` and `/status` return `404`. It runs the Next.js standalone output under a non-root user, provisions SQLite on startup, and stores data under `/data`.
+
+The UI image serves the Inspector at `/` and Status at `/status`. It forwards other requests to `WEBHOOK_API_URL`, which must be an absolute `http` or `https` URL. An invalid value stops startup. An unreachable API makes forwarded calls return `502`. The UI replaces caller-supplied forwarded IP headers. Capture URLs and the OpenAPI server address use the UI address when called through it. The old combined image keeps its tags but gets no new versions from `v0.1.0` onward.
 
 ```bash
-docker build -t website-hook src/webhook
-docker run -p 3000:3000 -v website-hook-data:/data website-hook
+docker build --target api -t website-hook-api src/webhook
+docker build --target ui -t website-hook-ui src/webhook
 ```
 
-For persistent configuration, use [`docker-compose.yml`](../docker-compose.yml):
+[`docker-compose.yml`](../docker-compose.yml) runs both services. The API is on host port `3000` with a persistent `/data` volume. The UI is on host port `8080` and waits for a healthy API:
 
 ```bash
 docker compose up -d
 ```
+
+For separate `docker run` commands, see the [README container guide](../README.md).
 
 ### Cloudflare Workers via CI
 
@@ -124,6 +129,8 @@ The required repository secrets are `CF_API_TOKEN` and `CF_ACCOUNT_ID`.
 
 ## .NET Testcontainers module
 
-For .NET integration tests, use the `DKNet.Tests.WebsiteHook` Testcontainers module in [`src/TestContainer.Webhook/`](../src/TestContainer.Webhook/). Its own README documents installation, customization, and the builder API:
+For .NET integration tests, `DKNet.Tests.WebsiteHook` defaults to `ghcr.io/baoduy/website-hook-api:latest`, which has no UI. Its README documents installation, customization, and the builder API:
 
 → [`src/TestContainer.Webhook/README.md`](../src/TestContainer.Webhook/README.md)
+
+For Aspire AppHosts, the [`DKNet.Aspire.Hosting.WebsiteHook` package](../src/Aspire.Hosting.WebsiteHook/README.md) adds the API resource. The UI is opt-in.

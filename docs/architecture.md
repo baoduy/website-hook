@@ -73,7 +73,7 @@ The two hosting modes provision the schema differently:
 
 ## Expiry purge
 
-Webhooks expire 7 days after the last captured request (`TTL_DAYS`). Purge runs in both modes:
+Webhooks expire 7 days after the last captured request by default (`TTL_DAYS`). A new webhook can use a different idle period, or never expire, by setting `WEBHOOK_TTL_DAYS`; each webhook keeps the period it was created with. Purge runs in both modes:
 
 ### Node.js / Docker
 
@@ -95,11 +95,12 @@ Environment variables are read in [`lib/constants.ts`](../src/webhook/lib/consta
 | `DISABLE_RATE_LIMIT` | unset (rate limit disabled) | Any value except `"false"`, `"0"`, or `"no"` disables the 20/min/IP creation limit. |
 | `DISABLE_WEBHOOK_QUOTA` | unset (quota disabled) | Any value except `"false"`, `"0"`, or `"no"` disables the per-IP webhook quota. |
 | `WEBHOOK_QUOTA` | `5` when quota is enabled | Effective quota per IP; set to `0` or `"disabled"` to disable. |
+| `WEBHOOK_TTL_DAYS` | `7` | Idle days before a new webhook expires; `0` means never. Applies only to webhooks created after the change. Invalid values fall back to 7 with a logged warning. |
 
 Hardcoded limits, also in [`lib/constants.ts`](../src/webhook/lib/constants.ts):
 
 - `MAX_BODY_BYTES` — 1,048,576 bytes (1 MiB) request body cap.
-- `TTL_DAYS` — 7 days idle expiry.
+- `TTL_DAYS` — 7 days idle expiry by default, overridden per webhook by `WEBHOOK_TTL_DAYS`.
 - `MAX_REQUESTS_PER_WEBHOOK` — 1,000 stored requests per webhook.
 - `CREATE_RATE_LIMIT` — 20 webhook creations per IP per minute (when enabled).
 - `MAX_REMEMBERED_WEBHOOKS` — 5 webhooks remembered in the inspector UI.
@@ -111,20 +112,20 @@ Rate limiting is implemented in [`lib/rateLimit.ts`](../src/webhook/lib/rateLimi
 
 ### Docker
 
-- [`src/webhook/Dockerfile`](../src/webhook/Dockerfile) builds a multi-stage Node 24 image:
-  1. Install dependencies.
-  2. Generate Prisma client and build the Next.js standalone output.
-  3. Copy the standalone server, static assets, schema, migrations, and [`scripts/start.js`](../src/webhook/scripts/start.js) into a non-root runtime stage.
-- The published image is `ghcr.io/baoduy/website-hook:latest`, built by [`.github/workflows/publish.yml`](../.github/workflows/publish.yml).
-- [`docker-compose.yml`](../docker-compose.yml) mounts a named volume to `/data` and sets `DB_PATH=/data/webhook.db`.
-- The Dockerfile healthcheck hits `http://127.0.0.1:3000/00000000-0000-0000-0000-000000000000`; any HTTP response (including the resulting `404`) proves the server is routing.
+- [`src/webhook/Dockerfile`](../src/webhook/Dockerfile) builds two Node 24 image targets: `api` and `ui`.
+- [`.github/workflows/publish.yml`](../.github/workflows/publish.yml) publishes `ghcr.io/baoduy/website-hook-api` and `ghcr.io/baoduy/website-hook-ui`. The old `ghcr.io/baoduy/website-hook` tags remain, but get no new versions from `v0.1.0` onward.
+- The API image serves capture URLs, `/api/...`, `/api/reference`, and `/openapi.json`. Its `/` and `/status` paths return `404`. It stores SQLite data under `/data` and keeps the existing `DB_PATH`, `DISABLE_RATE_LIMIT`, `WEBHOOK_QUOTA`, `DISABLE_WEBHOOK_QUOTA`, and `WEBHOOK_TTL_DAYS` settings.
+- The UI image serves `/` and `/status`, then forwards other requests to the API. It requires an absolute `http` or `https` `WEBHOOK_API_URL` at startup. Forwarded calls return `502` if the API is unreachable. The UI replaces caller-supplied forwarded IP headers. Capture URLs and the OpenAPI server address use the UI address when called through it.
+- [`docker-compose.yml`](../docker-compose.yml) runs both services. The API uses host port `3000` and a named `/data` volume; the UI uses host port `8080` and waits for the API healthcheck.
+- The API healthcheck hits `http://127.0.0.1:3000/00000000-0000-0000-0000-000000000000`; any HTTP response, including `404`, proves it is routing.
 
 ### Cloudflare Workers
 
 - [`wrangler.jsonc`](../src/webhook/wrangler.jsonc) configures an `opennextjs-cloudflare` worker, D1 binding, and the hourly cron trigger.
 - [`.github/workflows/deploy-cf.yml`](../.github/workflows/deploy-cf.yml) runs `npm run build:cf`, applies D1 migrations, and deploys with `wrangler deploy`.
 - Workers credentials (`CF_API_TOKEN`, `CF_ACCOUNT_ID`) are expected as repository secrets.
+- The Cloudflare-hosted site still runs the UI and API together.
 
 ## .NET Testcontainers module
 
-For integration testing from .NET, the repository includes a Testcontainers module in [`src/TestContainer.Webhook/`](../src/TestContainer.Webhook/). See [`src/TestContainer.Webhook/README.md`](../src/TestContainer.Webhook/README.md) for installation, defaults, and the fluent builder API — it is not duplicated here.
+For integration testing from .NET, `DKNet.Tests.WebsiteHook` now uses `ghcr.io/baoduy/website-hook-api:latest` by default, without the UI. See [`src/TestContainer.Webhook/README.md`](../src/TestContainer.Webhook/README.md) for installation and usage. The [`DKNet.Aspire.Hosting.WebsiteHook` package](../src/Aspire.Hosting.WebsiteHook/README.md) adds the API to an Aspire AppHost and can add the UI as a second resource.

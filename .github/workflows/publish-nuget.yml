@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'src/TestContainer.Webhook/**'
+      - 'src/Aspire.Hosting.WebsiteHook/**'
   workflow_dispatch:
 
 permissions:
@@ -14,9 +15,6 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: src/TestContainer.Webhook
     steps:
       - uses: actions/checkout@v5
         with:
@@ -39,11 +37,17 @@ jobs:
           dotnet-version: "10.0.x"
           dotnet-quality: "preview"
 
-      - run: dotnet restore
+      - run: dotnet restore src/TestContainer.Webhook/DKNet.Tests.WebsiteHook.csproj
 
-      - run: dotnet build --configuration Release --no-restore
+      - run: dotnet build src/TestContainer.Webhook/DKNet.Tests.WebsiteHook.csproj --configuration Release --no-restore
 
-      - run: dotnet pack --configuration Release --no-build -p:Version=${{ steps.version.outputs.version }} -o ./nupkg
+      - run: dotnet pack src/TestContainer.Webhook/DKNet.Tests.WebsiteHook.csproj --configuration Release --no-build -p:Version=${{ steps.version.outputs.version }} -o ./nupkg
+
+      - run: dotnet restore src/Aspire.Hosting.WebsiteHook/DKNet.Aspire.Hosting.WebsiteHook.csproj
+
+      - run: dotnet build src/Aspire.Hosting.WebsiteHook/DKNet.Aspire.Hosting.WebsiteHook.csproj --configuration Release --no-restore
+
+      - run: dotnet pack src/Aspire.Hosting.WebsiteHook/DKNet.Aspire.Hosting.WebsiteHook.csproj --configuration Release --no-build -p:Version=${{ steps.version.outputs.version }} -o ./nupkg
 
       # Get a short-lived NuGet API key
       - name: NuGet login (OIDC → temp API key)

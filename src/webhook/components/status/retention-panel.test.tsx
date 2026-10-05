@@ -62,4 +62,42 @@ describe("RetentionPanel", () => {
     await user.click(screen.getByText("Delete 1 webhook"));
     expect(onCleanup).toHaveBeenCalled();
   });
+
+  describe("retention note and clean-up button follow the idle-period setting (DRK-2061)", () => {
+    const target = { id: "7b19aa03", requestCount: 12 };
+
+    it('setting "0": says webhooks never expire, without the 30-day sentence, and disables clean-up', () => {
+      render(
+        <RetentionPanel storage={storage} preview={{ webhooks: [], totalRequests: 0, webhookTtlDays: null }} onCleanup={() => {}} />,
+      );
+      expect(screen.getByText("Webhooks never expire on this deployment.").tagName).toBe("P");
+      expect(screen.queryByText(/This clears anything created over 30 days ago/)).toBeNull();
+      expect(screen.getByText("Nothing older than 30 days").closest("button")?.hasAttribute("disabled")).toBe(true);
+    });
+
+    it.each([
+      { setting: '"30"', days: 30 },
+      { setting: "not set", days: 7 },
+    ])("setting $setting: states the $days-day idle period with the 30-day sentence and enables clean-up", ({ days }) => {
+      render(
+        <RetentionPanel
+          storage={storage}
+          preview={{ webhooks: [target], totalRequests: 12, webhookTtlDays: days }}
+          onCleanup={() => {}}
+        />,
+      );
+      const note = screen.getByText(
+        `New webhooks are deleted after ${days} idle days. This clears anything created over 30 days ago, however recently it was hit.`,
+      );
+      expect(note.tagName).toBe("P");
+      expect(screen.getByText("Delete 1 webhook + 12 requests").closest("button")?.hasAttribute("disabled")).toBe(false);
+    });
+
+    it("shows no retention note while the preview is still loading", () => {
+      render(<RetentionPanel storage={storage} preview={null} onCleanup={() => {}} />);
+      expect(screen.getByText("Stored webhooks")).toBeTruthy();
+      expect(screen.queryByText(/Webhooks never expire|New webhooks are deleted/)).toBeNull();
+      expect(screen.getByText("Nothing older than 30 days").closest("button")?.hasAttribute("disabled")).toBe(true);
+    });
+  });
 });
