@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { getCapturedRequest, getWebhook } from "@/lib/db";
-import { getClientIp, notFound, serializeCapturedRequest } from "@/lib/http";
+import { getClientIp, notFound, serializeCapturedRequest, NO_STORE } from "@/lib/http";
 import { getRequestPath, logRequest } from "@/lib/logging";
 
 /**
@@ -34,7 +34,7 @@ export async function GET(
     return response;
   }
 
-  const response = Response.json(serializeCapturedRequest(captured));
+  const response = Response.json(serializeCapturedRequest(captured), { headers: NO_STORE });
   logRequest(request.method, getRequestPath(request), response.status, Math.round(performance.now() - start), {
     webhookId: id,
     clientIp: ip,

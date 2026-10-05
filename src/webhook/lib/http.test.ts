@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
-import { getClientIp } from "./http";
+import { getClientIp, notFound } from "./http";
+
+describe("notFound", () => {
+  it("returns a 404 not_found body that no cache may store", async () => {
+    const res = notFound();
+
+    expect(res.status).toBe(404);
+    expect(res.headers.get("cache-control")).toBe("no-store");
+    expect(await res.json()).toEqual({ error: "not_found" });
+  });
+});
 
 describe("getClientIp", () => {
   it("uses the first IP from x-forwarded-for when present", () => {

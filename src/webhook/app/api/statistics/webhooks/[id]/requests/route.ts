@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { listWebhookRequests, webhookExists } from "@/lib/statistics";
-import { getClientIp, notFound } from "@/lib/http";
+import { getClientIp, notFound, NO_STORE } from "@/lib/http";
 import { getRequestPath, logRequest } from "@/lib/logging";
 
 const DEFAULT_LIMIT = 5;
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 
   const result = await listWebhookRequests(id, limit);
-  const response = Response.json(result);
+  const response = Response.json(result, { headers: NO_STORE });
   logRequest(request.method, getRequestPath(request), response.status, Math.round(performance.now() - start), {
     webhookId: id,
     clientIp: ip,
