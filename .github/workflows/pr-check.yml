@@ -44,3 +44,21 @@ jobs:
       - run: dotnet build --configuration Release --no-restore
 
       - run: dotnet pack --configuration Release --no-build -o ./nupkg
+
+  build-aspire:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+          dotnet-quality: "preview"
+
+      - run: dotnet restore src/Aspire.Hosting.WebsiteHook.Tests/DKNet.Aspire.Hosting.WebsiteHook.Tests.csproj
+
+      - run: dotnet build src/Aspire.Hosting.WebsiteHook.Tests/DKNet.Aspire.Hosting.WebsiteHook.Tests.csproj --configuration Release --no-restore
+
+      - run: dotnet pack src/Aspire.Hosting.WebsiteHook/DKNet.Aspire.Hosting.WebsiteHook.csproj --configuration Release --no-build -o ./nupkg
+
+      - run: dotnet test src/Aspire.Hosting.WebsiteHook.Tests/DKNet.Aspire.Hosting.WebsiteHook.Tests.csproj --configuration Release --no-build --filter 'Category!=Integration'

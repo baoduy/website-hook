@@ -41,15 +41,31 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: docker/build-push-action@v6
+      - name: Publish API image
+        uses: docker/build-push-action@v6
         with:
           context: src/webhook
+          target: api
           push: true
           platforms: linux/amd64,linux/arm64
+          labels: org.opencontainers.image.source=https://github.com/baoduy/website-hook
           tags: |
-            ghcr.io/baoduy/website-hook:latest
-            ghcr.io/baoduy/website-hook:${{ github.sha }}
-            ghcr.io/baoduy/website-hook:${{ steps.version.outputs.version }}
+            ghcr.io/baoduy/website-hook-api:latest
+            ghcr.io/baoduy/website-hook-api:${{ github.sha }}
+            ghcr.io/baoduy/website-hook-api:${{ steps.version.outputs.version }}
+
+      - name: Publish UI image
+        uses: docker/build-push-action@v6
+        with:
+          context: src/webhook
+          target: ui
+          push: true
+          platforms: linux/amd64,linux/arm64
+          labels: org.opencontainers.image.source=https://github.com/baoduy/website-hook
+          tags: |
+            ghcr.io/baoduy/website-hook-ui:latest
+            ghcr.io/baoduy/website-hook-ui:${{ github.sha }}
+            ghcr.io/baoduy/website-hook-ui:${{ steps.version.outputs.version }}
 
       - name: Check if release tag exists
         id: check_tag

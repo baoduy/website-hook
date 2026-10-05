@@ -1,6 +1,6 @@
 services:
-  website-hook:
-    image: ghcr.io/baoduy/website-hook:latest
+  website-hook-api:
+    image: ghcr.io/baoduy/website-hook-api:latest
     ports:
       - "3000:3000"
     environment:
@@ -8,6 +8,17 @@ services:
       # Rate limiting is disabled by default. Set to "false" to enable.
     volumes:
       - webhook-data:/data
+    restart: unless-stopped
+
+  website-hook-ui:
+    image: ghcr.io/baoduy/website-hook-ui:latest
+    ports:
+      - "8080:3000"
+    environment:
+      WEBHOOK_API_URL: http://website-hook-api:3000
+    depends_on:
+      website-hook-api:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
