@@ -73,7 +73,7 @@ The two hosting modes provision the schema differently:
 
 ## Expiry purge
 
-Webhooks expire 7 days after the last captured request (`TTL_DAYS`). Purge runs in both modes:
+Webhooks expire 7 days after the last captured request by default (`TTL_DAYS`). A new webhook can use a different idle period, or never expire, by setting `WEBHOOK_TTL_DAYS`; each webhook keeps the period it was created with. Purge runs in both modes:
 
 ### Node.js / Docker
 
@@ -95,11 +95,12 @@ Environment variables are read in [`lib/constants.ts`](../src/webhook/lib/consta
 | `DISABLE_RATE_LIMIT` | unset (rate limit disabled) | Any value except `"false"`, `"0"`, or `"no"` disables the 20/min/IP creation limit. |
 | `DISABLE_WEBHOOK_QUOTA` | unset (quota disabled) | Any value except `"false"`, `"0"`, or `"no"` disables the per-IP webhook quota. |
 | `WEBHOOK_QUOTA` | `5` when quota is enabled | Effective quota per IP; set to `0` or `"disabled"` to disable. |
+| `WEBHOOK_TTL_DAYS` | `7` | Idle days before a new webhook expires; `0` means never. Applies only to webhooks created after the change. Invalid values fall back to 7 with a logged warning. |
 
 Hardcoded limits, also in [`lib/constants.ts`](../src/webhook/lib/constants.ts):
 
 - `MAX_BODY_BYTES` — 1,048,576 bytes (1 MiB) request body cap.
-- `TTL_DAYS` — 7 days idle expiry.
+- `TTL_DAYS` — 7 days idle expiry by default, overridden per webhook by `WEBHOOK_TTL_DAYS`.
 - `MAX_REQUESTS_PER_WEBHOOK` — 1,000 stored requests per webhook.
 - `CREATE_RATE_LIMIT` — 20 webhook creations per IP per minute (when enabled).
 - `MAX_REMEMBERED_WEBHOOKS` — 5 webhooks remembered in the inspector UI.

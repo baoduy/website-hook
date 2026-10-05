@@ -3,7 +3,7 @@
 The webhook API for AI webhook integration testing. Create a capture webhook, point any
 external system at its unique URL, and inspect every request it sends — method, path,
 query, headers, and body — with no UI and no accounts. Idle webhooks purge themselves
-after 7 days.
+after 7 days by default. Change the period, or turn off expiry, with `WEBHOOK_TTL_DAYS`.
 
 ## Repository layout
 
@@ -31,6 +31,7 @@ GET    /api/webhooks/:id/requests/:requestId         → 200 { id, method, path,
 *      /:id/*path                                    → 200 always, 404 if webhook missing/expired
 ```
 
+- **Expiry**: `expiresAt` is `null` for a webhook that never expires (`WEBHOOK_TTL_DAYS=0`).
 - **Pagination**: `?limit=` (default 20, max 100) and `?cursor=` (the `nextCursor` from the
   previous page, omit for the first page). Results are newest-first.
 - **Body encoding**: captured request bodies are opaque bytes, returned as a base64 string
@@ -50,6 +51,7 @@ GET    /api/webhooks/:id/requests/:requestId         → 200 { id, method, path,
 | --------- | --------------------- | ---------------------------------------- |
 | `DB_PATH` | `./data/webhook.db`   | Container default: `/data/webhook.db`. Mount `/data` as a volume for persistence. |
 | `DISABLE_RATE_LIMIT` | (disabled) | Set to `"true"`, `"1"`, or `"yes"` to disable the 20/min/IP webhook creation limit. |
+| `WEBHOOK_TTL_DAYS` | `7` | Idle days before a new webhook expires. `0` turns off expiry for new webhooks. Any other non-digit value (e.g. `-1`, `abc`, `1.5`) falls back to 7 and logs one warning. Changing this only affects webhooks created afterward — existing webhooks keep the period they were created with. |
 
 ## Running locally
 
