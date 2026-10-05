@@ -207,12 +207,12 @@ describe("getWebhookTtlDays", () => {
     expect(getWebhookTtlDays()).toBe(7);
     expect(getWebhookTtlDays()).toBe(7);
     expect(warn).toHaveBeenCalledTimes(1);
-    expect(warn).toHaveBeenLastCalledWith('WEBHOOK_TTL_DAYS="q1-first" is not a whole number of days; using 7.');
+    expect(warn).toHaveBeenLastCalledWith('WEBHOOK_TTL_DAYS="q1-first" is not a valid number of days; using 7.');
 
     process.env.WEBHOOK_TTL_DAYS = "q1-second";
     expect(getWebhookTtlDays()).toBe(7);
     expect(warn).toHaveBeenCalledTimes(2);
-    expect(warn).toHaveBeenLastCalledWith('WEBHOOK_TTL_DAYS="q1-second" is not a whole number of days; using 7.');
+    expect(warn).toHaveBeenLastCalledWith('WEBHOOK_TTL_DAYS="q1-second" is not a valid number of days; using 7.');
   });
 
   it("Q2: keeps the largest period that still counts in safe milliseconds, with no warning", () => {
@@ -228,7 +228,7 @@ describe("getWebhookTtlDays", () => {
     process.env.WEBHOOK_TTL_DAYS = "104249992";
 
     expect(getWebhookTtlDays()).toBe(7);
-    expect(warn).toHaveBeenCalledExactlyOnceWith('WEBHOOK_TTL_DAYS="104249992" is not a whole number of days; using 7.');
+    expect(warn).toHaveBeenCalledExactlyOnceWith('WEBHOOK_TTL_DAYS="104249992" is not a valid number of days; using 7.');
   });
 
   it("Q2: falls back to 7 with a warning for a huge digits-only value", () => {
@@ -237,7 +237,7 @@ describe("getWebhookTtlDays", () => {
 
     expect(getWebhookTtlDays()).toBe(7);
     expect(warn).toHaveBeenCalledExactlyOnceWith(
-      'WEBHOOK_TTL_DAYS="99999999999999999999" is not a whole number of days; using 7.',
+      'WEBHOOK_TTL_DAYS="99999999999999999999" is not a valid number of days; using 7.',
     );
   });
 });

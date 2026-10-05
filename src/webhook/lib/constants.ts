@@ -48,7 +48,7 @@ export function getWebhookTtlDays(): number | null {
   }
   if (!warnedTtlValues.has(value)) {
     warnedTtlValues.add(value);
-    console.warn(`WEBHOOK_TTL_DAYS="${value}" is not a whole number of days; using ${TTL_DAYS}.`);
+    console.warn(`WEBHOOK_TTL_DAYS="${value}" is not a valid number of days; using ${TTL_DAYS}.`);
   }
   return TTL_DAYS;
 }
