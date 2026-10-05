@@ -10,7 +10,7 @@ const storage: Storage = { webhooks: 26, capturedRequests: 4310, oldWebhooks: 3,
 
 describe("RetentionPanel", () => {
   it("renders the storage totals and the over-30-day figures", () => {
-    render(<RetentionPanel storage={storage} preview={{ webhooks: [], totalRequests: 0 }} onCleanup={() => {}} />);
+    render(<RetentionPanel storage={storage} preview={{ webhooks: [], totalRequests: 0, webhookTtlDays: 7 }} onCleanup={() => {}} />);
     expect(screen.getByText("Stored webhooks")).toBeTruthy();
     expect(screen.getByText("26")).toBeTruthy();
     expect(screen.getByText("Stored requests")).toBeTruthy();
@@ -21,7 +21,7 @@ describe("RetentionPanel", () => {
   });
 
   it("disables the clean-up action and says so when nothing is old enough", () => {
-    render(<RetentionPanel storage={storage} preview={{ webhooks: [], totalRequests: 0 }} onCleanup={() => {}} />);
+    render(<RetentionPanel storage={storage} preview={{ webhooks: [], totalRequests: 0, webhookTtlDays: 7 }} onCleanup={() => {}} />);
     const button = screen.getByText("Nothing older than 30 days");
     expect(button).toBeTruthy();
     expect(button.closest("button")?.hasAttribute("disabled")).toBe(true);
@@ -31,7 +31,7 @@ describe("RetentionPanel", () => {
     render(
       <RetentionPanel
         storage={storage}
-        preview={{ webhooks: [{ id: "7b19aa03", requestCount: 12 }], totalRequests: 12 }}
+        preview={{ webhooks: [{ id: "7b19aa03", requestCount: 12 }], totalRequests: 12, webhookTtlDays: 7 }}
         onCleanup={() => {}}
       />,
     );
@@ -51,7 +51,7 @@ describe("RetentionPanel", () => {
     render(
       <RetentionPanel
         storage={storage}
-        preview={{ webhooks: [{ id: "7b19aa03", requestCount: 12 }], totalRequests: 12 }}
+        preview={{ webhooks: [{ id: "7b19aa03", requestCount: 12 }], totalRequests: 12, webhookTtlDays: 7 }}
         onCleanup={onCleanup}
       />,
     );

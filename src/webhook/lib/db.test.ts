@@ -38,7 +38,7 @@ describe("createWebhook", () => {
     const webhook = await db.createWebhook();
     expect(webhook.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
     expect(webhook.requestCount).toBe(0);
-    expect(webhook.expiresAt - webhook.createdAt).toBe(TTL_MS);
+    expect(webhook.expiresAt! - webhook.createdAt).toBe(TTL_MS);
   });
 
   it("persists the creator IP so the quota survives process restarts and shared stores", async () => {
@@ -230,6 +230,29 @@ describe("purgeExpiredWebhooks", () => {
     )) as unknown as { c: bigint }[];
     expect(Number(remaining[0].c)).toBe(0);
     expect(await db.getWebhook(fresh.id)).not.toBeNull();
+  });
+});
+
+describe("expiry boundary (DRK-2061 R2, §6a D6)", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("keeps a webhook idle for exactly its period alive in read, quota and purge, and expires it 1 ms later", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Date.UTC(2026, 9, 5, 9, 0));
+    const webhook = await db.createWebhook("198.51.100.9");
+    await seedLastActivityDaysAgo(webhook.id, TTL_DAYS);
+
+    expect(await db.getWebhook(webhook.id)).not.toBeNull();
+    expect(await db.countActiveWebhooksByIp("198.51.100.9")).toBe(1);
+    expect(await db.purgeExpiredWebhooks()).toBe(0);
+
+    vi.setSystemTime(Date.UTC(2026, 9, 5, 9, 0) + 1);
+
+    expect(await db.getWebhook(webhook.id)).toBeNull();
+    expect(await db.countActiveWebhooksByIp("198.51.100.9")).toBe(0);
+    expect(await db.purgeExpiredWebhooks()).toBe(1);
   });
 });
 

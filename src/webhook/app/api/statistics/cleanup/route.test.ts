@@ -51,7 +51,7 @@ describe("GET /api/statistics/cleanup", () => {
 
     const res = await GET(new NextRequest("http://localhost/api/statistics/cleanup"));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ webhooks: [{ id: "7b19aa03", requestCount: 12 }], totalRequests: 12 });
+    expect(await res.json()).toEqual({ webhooks: [{ id: "7b19aa03", requestCount: 12 }], totalRequests: 12, webhookTtlDays: 7 });
   });
 });
 

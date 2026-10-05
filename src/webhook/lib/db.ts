@@ -1,14 +1,13 @@
-import { MAX_REQUESTS_PER_WEBHOOK, TTL_DAYS } from "./constants";
+import { DAY_MS, MAX_REQUESTS_PER_WEBHOOK, getWebhookTtlDays } from "./constants";
 import { ensureSchema, getClient } from "./prisma";
-
-const TTL_MS = TTL_DAYS * 24 * 60 * 60 * 1000;
 
 export interface WebhookInfo {
   id: string;
   createdAt: number;
   lastActivityAt: number;
   requestCount: number;
-  expiresAt: number;
+  /** `null` when the webhook never expires. */
+  expiresAt: number | null;
 }
 
 export interface CapturedRequestInput {
@@ -31,8 +30,13 @@ export interface CapturedRequestPage {
   nextCursor: string | null;
 }
 
-function isExpired(lastActivityAt: number): boolean {
-  return Date.now() - lastActivityAt > TTL_MS;
+/** When a webhook idle since `lastActivityAt` expires under its own period; `null` (never) when `ttlDays` is null. */
+export function webhookExpiresAt(lastActivityAt: number, ttlDays: number | null): number | null {
+  return ttlDays === null ? null : lastActivityAt + ttlDays * DAY_MS;
+}
+
+function isExpired(expiresAt: number | null): boolean {
+  return expiresAt !== null && Date.now() > expiresAt;
 }
 
 function toCapturedRequest(row: {
@@ -78,11 +82,13 @@ export async function createWebhook(creatorIp: string = ""): Promise<WebhookInfo
 
   const id = crypto.randomUUID();
   const now = Date.now();
+  // Written explicitly, null included: an omitted value would take the column default of 7.
+  const ttlDays = getWebhookTtlDays();
   await prisma.webhook.create({
-    data: { id, createdAt: BigInt(now), lastActivityAt: BigInt(now), creatorIp },
+    data: { id, createdAt: BigInt(now), lastActivityAt: BigInt(now), creatorIp, ttlDays },
   });
 
-  return { id, createdAt: now, lastActivityAt: now, requestCount: 0, expiresAt: now + TTL_MS };
+  return { id, createdAt: now, lastActivityAt: now, requestCount: 0, expiresAt: webhookExpiresAt(now, ttlDays) };
 }
 
 /** Counts non-expired webhooks created from the same IP for quota enforcement. */
@@ -90,12 +96,14 @@ export async function countActiveWebhooksByIp(creatorIp: string): Promise<number
   const prisma = getClient();
   await ensureSchema(prisma);
 
-  return prisma.webhook.count({
-    where: {
-      creatorIp,
-      lastActivityAt: { gt: BigInt(Date.now() - TTL_MS) },
-    },
-  });
+  // Not expired = the negation of isExpired: no period, or now within it.
+  const [row] = await prisma.$queryRaw<{ count: bigint }[]>`
+    SELECT COUNT(*) AS count
+    FROM webhooks
+    WHERE creator_ip = ${creatorIp}
+      AND (ttl_days IS NULL OR last_activity_at + ttl_days * ${DAY_MS} >= ${BigInt(Date.now())})
+  `;
+  return Number(row.count);
 }
 
 export async function touchWebhook(id: string): Promise<void> {
@@ -117,11 +125,12 @@ export async function getWebhook(id: string): Promise<WebhookInfo | null> {
   if (!row) return null;
 
   const lastActivityAt = Number(row.lastActivityAt);
-  if (isExpired(lastActivityAt)) return null;
+  const expiresAt = webhookExpiresAt(lastActivityAt, row.ttlDays);
+  if (isExpired(expiresAt)) return null;
 
   const requestCount = await prisma.capturedRequest.count({ where: { webhookId: id } });
 
-  return { id: row.id, createdAt: Number(row.createdAt), lastActivityAt, requestCount, expiresAt: lastActivityAt + TTL_MS };
+  return { id: row.id, createdAt: Number(row.createdAt), lastActivityAt, requestCount, expiresAt };
 }
 
 /** Idempotent — deleting an already-gone webhook is a no-op, not an error. Cascades to its captured requests. */
@@ -220,10 +229,9 @@ export async function purgeExpiredWebhooks(): Promise<number> {
   const prisma = getClient();
   await ensureSchema(prisma);
 
-  const cutoff = BigInt(Date.now() - TTL_MS);
-  const result = await prisma.webhook.deleteMany({
-    where: { lastActivityAt: { lt: cutoff } },
-  });
-
-  return result.count;
+  // Each webhook by its own period; never-expiring ones (null) are kept. Cascades to captured requests.
+  return prisma.$executeRaw`
+    DELETE FROM webhooks
+    WHERE ttl_days IS NOT NULL AND last_activity_at + ttl_days * ${DAY_MS} < ${BigInt(Date.now())}
+  `;
 }

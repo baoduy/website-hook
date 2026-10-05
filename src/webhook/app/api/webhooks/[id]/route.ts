@@ -6,7 +6,7 @@ import { getRequestPath, logRequest } from "@/lib/logging";
 /**
  * Retrieve a webhook
  *
- * Returns metadata for the webhook with the given id, or 404 if it does not exist or has expired.
+ * Returns metadata for the webhook with the given id, or 404 if it does not exist or has expired under its own idle period. `expiresAt` is null when the webhook never expires.
  */
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const start = performance.now();

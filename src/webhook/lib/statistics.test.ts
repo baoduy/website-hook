@@ -345,7 +345,7 @@ describe("previewCleanup", () => {
 
   it("returns an empty preview when nothing is old enough", async () => {
     await seedWebhook({ createdAt: Date.now() - 9 * DAY });
-    expect(await stats.previewCleanup()).toEqual({ webhooks: [], totalRequests: 0 });
+    expect(await stats.previewCleanup()).toEqual({ webhooks: [], totalRequests: 0, webhookTtlDays: 7 });
   });
 });
 

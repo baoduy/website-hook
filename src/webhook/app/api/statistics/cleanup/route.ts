@@ -6,7 +6,7 @@ import { getRequestPath, logRequest } from "@/lib/logging";
 /**
  * Preview cleanup
  *
- * Reports what an expired-data cleanup pass would remove, without deleting anything.
+ * Reports what an expired-data cleanup pass would remove, without deleting anything. `webhookTtlDays` is the current idle period for new webhooks in days; null means new webhooks never expire, and the preview is then empty.
  */
 export async function GET(request: NextRequest) {
   const start = performance.now();
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 /**
  * Run cleanup
  *
- * Permanently deletes expired webhooks and their captured requests, and returns what was removed.
+ * Permanently deletes webhooks created over 30 days ago and their captured requests, and returns what was removed. Deletes nothing while `WEBHOOK_TTL_DAYS` is 0.
  */
 export async function DELETE(request: NextRequest) {
   const start = performance.now();
