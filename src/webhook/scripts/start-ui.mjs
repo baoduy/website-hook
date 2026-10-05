@@ -119,7 +119,8 @@ export function main() {
 
   const next = spawn("node", ["server.js"], {
     stdio: "inherit",
-    env: { ...process.env, HOSTNAME: "127.0.0.1", PORT: String(NEXT_PORT) },
+    // WEBSITE_HOOK_UI_FORWARDER tells instrumentation.ts not to schedule the purge: the UI keeps no data.
+    env: { ...process.env, HOSTNAME: "127.0.0.1", PORT: String(NEXT_PORT), WEBSITE_HOOK_UI_FORWARDER: "1" },
   });
   next.on("exit", (code, signal) => {
     process.exit(code ?? (signal ? 1 : 0));

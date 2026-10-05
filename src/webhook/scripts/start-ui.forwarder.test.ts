@@ -246,6 +246,18 @@ describe("main — starting the UI", () => {
   });
 });
 
+describe("main — the UI's Next server keeps no data", () => {
+  it("spawns Next with WEBSITE_HOOK_UI_FORWARDER=1 so it schedules no purge", async () => {
+    vi.stubEnv("WEBHOOK_API_URL", "http://website-hook-api:3000");
+    vi.stubEnv("PORT", "0");
+    spawn.mockReturnValue(new EventEmitter());
+
+    await listening(main()!);
+
+    expect(spawn.mock.calls[0][2].env.WEBSITE_HOOK_UI_FORWARDER).toBe("1");
+  });
+});
+
 async function listening(server: http.Server) {
   servers.push(server);
   if (!server.listening) await new Promise((resolve) => server.once("listening", resolve));
