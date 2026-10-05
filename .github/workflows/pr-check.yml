@@ -61,4 +61,10 @@ jobs:
 
       - run: dotnet pack src/Aspire.Hosting.WebsiteHook/DKNet.Aspire.Hosting.WebsiteHook.csproj --configuration Release --no-build -o ./nupkg
 
-      - run: dotnet test src/Aspire.Hosting.WebsiteHook.Tests/DKNet.Aspire.Hosting.WebsiteHook.Tests.csproj --configuration Release --no-build --filter 'Category!=Integration'
+      # The split images are not published until release. Test this PR's Dockerfile targets.
+      - name: Build API and UI images for integration tests
+        run: |
+          docker build --target api -t ghcr.io/baoduy/website-hook-api:latest src/webhook
+          docker build --target ui -t ghcr.io/baoduy/website-hook-ui:latest src/webhook
+
+      - run: dotnet test src/Aspire.Hosting.WebsiteHook.Tests/DKNet.Aspire.Hosting.WebsiteHook.Tests.csproj --configuration Release --no-build
