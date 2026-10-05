@@ -1,11 +1,11 @@
 import { Prisma } from "@prisma/client";
-import { CLEANUP_AGE_DAYS, TTL_DAYS, TRAFFIC_WINDOWS, type TrafficWindow } from "./constants";
+import { CLEANUP_AGE_DAYS, TRAFFIC_WINDOWS, getWebhookTtlDays, type TrafficWindow } from "./constants";
 
 export type { TrafficWindow };
+import { webhookExpiresAt } from "./db";
 import { ensureSchema, getClient } from "./prisma";
 
 const CLEANUP_AGE_MS = CLEANUP_AGE_DAYS * 24 * 60 * 60 * 1000;
-const TTL_MS = TTL_DAYS * 24 * 60 * 60 * 1000;
 
 export type TrafficBucket = { start: number; count: number };
 
@@ -42,7 +42,8 @@ export type WebhookListItem = {
   lastActivityAt: number;
   requestCount: number;
   payloadBytes: number;
-  expiresAt: number;
+  /** `null` when the webhook never expires. */
+  expiresAt: number | null;
 };
 
 export type WebhookList = { items: WebhookListItem[] };
@@ -59,7 +60,8 @@ export type RecentRequests = { total: number; items: RecentRequestItem[] };
 
 export type CleanupPreviewItem = { id: string; requestCount: number };
 
-export type CleanupPreview = { webhooks: CleanupPreviewItem[]; totalRequests: number };
+/** `webhookTtlDays` is the current setting for new webhooks; `null` = never expire, and the cleanup is off. */
+export type CleanupPreview = { webhooks: CleanupPreviewItem[]; totalRequests: number; webhookTtlDays: number | null };
 
 export type CleanupResult = { deletedWebhooks: number; deletedRequests: number };
 
@@ -236,6 +238,7 @@ export async function listWebhooks(filter?: string): Promise<WebhookList> {
     lastActivityAt: bigint;
     requestCount: bigint;
     payloadBytes: bigint | null;
+    ttlDays: bigint | number | null;
   };
 
   // Build a safe parameterized IN clause via Prisma.join.
@@ -246,6 +249,7 @@ export async function listWebhooks(filter?: string): Promise<WebhookList> {
       w.id,
       w.created_at AS createdAt,
       w.last_activity_at AS lastActivityAt,
+      w.ttl_days AS ttlDays,
       COUNT(r.id) AS requestCount,
       COALESCE(SUM(LENGTH(r.body)), 0) AS payloadBytes
     FROM webhooks w
@@ -262,7 +266,7 @@ export async function listWebhooks(filter?: string): Promise<WebhookList> {
       lastActivityAt: Number(row.lastActivityAt),
       requestCount: Number(row.requestCount),
       payloadBytes: toNumber(row.payloadBytes),
-      expiresAt: Number(row.lastActivityAt) + TTL_MS,
+      expiresAt: webhookExpiresAt(Number(row.lastActivityAt), row.ttlDays === null ? null : Number(row.ttlDays)),
     })),
   };
 }
@@ -306,6 +310,9 @@ export async function listWebhookRequests(webhookId: string, limit: number): Pro
 }
 
 export async function previewCleanup(): Promise<CleanupPreview> {
+  const webhookTtlDays = getWebhookTtlDays();
+  if (webhookTtlDays === null) return { webhooks: [], totalRequests: 0, webhookTtlDays };
+
   const prisma = getClient();
   await ensureSchema(prisma);
 
@@ -323,10 +330,13 @@ export async function previewCleanup(): Promise<CleanupPreview> {
   `;
 
   const totalRequests = rows.reduce((sum, r) => sum + Number(r.requestCount), 0);
-  return { webhooks: rows.map((r) => ({ id: r.id, requestCount: Number(r.requestCount) })), totalRequests };
+  return { webhooks: rows.map((r) => ({ id: r.id, requestCount: Number(r.requestCount) })), totalRequests, webhookTtlDays };
 }
 
+/** Off while the setting is 0 (webhooks never expire); otherwise removes every webhook created over 30 days ago. */
 export async function runCleanup(): Promise<CleanupResult> {
+  if (getWebhookTtlDays() === null) return { deletedWebhooks: 0, deletedRequests: 0 };
+
   const prisma = getClient();
   await ensureSchema(prisma);
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatBytes, formatNumber, relativeTime, untilTime, bucketLabel } from "./formatting";
+import { formatBytes, formatNumber, isExpiryUrgent, relativeTime, untilTime, bucketLabel } from "./formatting";
 
 describe("formatBytes", () => {
   it("renders zero as 0 B", () => {
@@ -55,6 +55,14 @@ describe("untilTime", () => {
     expect(untilTime(now, now + 90_000)).toBe("in 1m");
     expect(untilTime(now, now + 3 * 3_600_000)).toBe("in 3h");
     expect(untilTime(now, now + 2 * 86_400_000)).toBe("in 2d");
+  });
+});
+
+describe("isExpiryUrgent", () => {
+  it("is not urgent at exactly 36 hours left (strictly under 36 h turns red)", () => {
+    const now = Date.UTC(2026, 9, 5, 9, 0);
+    expect(isExpiryUrgent(now, now + 36 * 60 * 60 * 1000)).toBe(false);
+    expect(isExpiryUrgent(now, now + 36 * 60 * 60 * 1000 - 1)).toBe(true);
   });
 });
 

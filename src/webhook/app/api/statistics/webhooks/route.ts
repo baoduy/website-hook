@@ -6,7 +6,7 @@ import { getRequestPath, logRequest } from "@/lib/logging";
 /**
  * List webhooks
  *
- * Returns webhooks for the statistics dashboard, optionally filtered by the `q` search term.
+ * Returns webhooks for the statistics dashboard, optionally filtered by the `q` search term. `expiresAt` is null when the webhook never expires.
  */
 export async function GET(request: NextRequest) {
   const start = performance.now();

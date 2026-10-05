@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { WebhookListItem, RecentRequests } from "@/lib/statistics";
-import { formatBytes, formatNumber, relativeTime, untilTime } from "./formatting";
+import { formatBytes, formatNumber, isExpiryUrgent, relativeTime, untilTime } from "./formatting";
 import { useState, useCallback } from "react";
 import type { ApiResult } from "@/lib/statistics/api";
 import { CLEANUP_AGE_DAYS } from "@/lib/constants";
@@ -165,7 +165,7 @@ function WebhookRow({
         <span
           className={cn(
             "text-right text-xs",
-            webhook.expiresAt - now < 36 * 60 * 60 * 1000 ? "text-destructive" : "text-muted-foreground",
+            isExpiryUrgent(now, webhook.expiresAt) ? "text-destructive" : "text-muted-foreground",
           )}
         >
           {untilTime(now, webhook.expiresAt)}

@@ -1,5 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { DEFAULT_WEBHOOK_QUOTA, getWebhookQuota, isRateLimitDisabled, isWebhookQuotaDisabled } from "./constants";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  DEFAULT_WEBHOOK_QUOTA,
+  getWebhookQuota,
+  getWebhookTtlDays,
+  isRateLimitDisabled,
+  isWebhookQuotaDisabled,
+} from "./constants";
 
 // QC verification (DRK-280): the operator kill-switch contract was flipped — rate limiting and
 // the per-IP webhook quota now default to DISABLED (the live-env scenario: nothing is enforced
@@ -176,5 +182,62 @@ describe("isWebhookQuotaDisabled", () => {
   it("does not trim — a padded value stays disabled", () => {
     process.env.DISABLE_WEBHOOK_QUOTA = " false ";
     expect(isWebhookQuotaDisabled()).toBe(true);
+  });
+});
+// DRK-2061 §9: Q1 (warn once per process per distinct raw value) and Q2 (a digits-only period too
+// large to count in milliseconds is a bad value). Each test uses its own raw values because the
+// warned-value memory lives for the whole module instance.
+describe("getWebhookTtlDays", () => {
+  let original: string | undefined;
+
+  beforeEach(() => {
+    original = process.env.WEBHOOK_TTL_DAYS;
+  });
+
+  afterEach(() => {
+    if (original === undefined) delete process.env.WEBHOOK_TTL_DAYS;
+    else process.env.WEBHOOK_TTL_DAYS = original;
+    vi.restoreAllMocks();
+  });
+
+  it("Q1: warns once for a repeated bad value and once more for a different bad value", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    process.env.WEBHOOK_TTL_DAYS = "q1-first";
+    expect(getWebhookTtlDays()).toBe(7);
+    expect(getWebhookTtlDays()).toBe(7);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenLastCalledWith('WEBHOOK_TTL_DAYS="q1-first" is not a valid number of days; using 7.');
+
+    process.env.WEBHOOK_TTL_DAYS = "q1-second";
+    expect(getWebhookTtlDays()).toBe(7);
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(warn).toHaveBeenLastCalledWith('WEBHOOK_TTL_DAYS="q1-second" is not a valid number of days; using 7.');
+  });
+
+  it("Q2: keeps the largest period that still counts in safe milliseconds, with no warning", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    process.env.WEBHOOK_TTL_DAYS = "104249991";
+
+    expect(getWebhookTtlDays()).toBe(104249991);
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("Q2: falls back to 7 with a warning one day past the safe-millisecond limit", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    process.env.WEBHOOK_TTL_DAYS = "104249992";
+
+    expect(getWebhookTtlDays()).toBe(7);
+    expect(warn).toHaveBeenCalledExactlyOnceWith('WEBHOOK_TTL_DAYS="104249992" is not a valid number of days; using 7.');
+  });
+
+  it("Q2: falls back to 7 with a warning for a huge digits-only value", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    process.env.WEBHOOK_TTL_DAYS = "99999999999999999999";
+
+    expect(getWebhookTtlDays()).toBe(7);
+    expect(warn).toHaveBeenCalledExactlyOnceWith(
+      'WEBHOOK_TTL_DAYS="99999999999999999999" is not a valid number of days; using 7.',
+    );
   });
 });

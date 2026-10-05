@@ -29,6 +29,30 @@ export function isRateLimitDisabled(): boolean {
   return !["false", "0", "no"].includes(value.toLowerCase());
 }
 
+export const DAY_MS = 86_400_000;
+
+const warnedTtlValues = new Set<string>();
+
+/**
+ * Idle period in days for webhooks created now, or `null` when they never expire (`WEBHOOK_TTL_DAYS=0`).
+ * Unset or empty keeps TTL_DAYS. Anything but digits only — or a period too large to count in
+ * milliseconds — falls back to TTL_DAYS with one warning per process per distinct value.
+ */
+export function getWebhookTtlDays(): number | null {
+  const value = process.env.WEBHOOK_TTL_DAYS;
+  if (!value) return TTL_DAYS;
+  if (/^\d+$/.test(value)) {
+    const days = Number(value);
+    if (days === 0) return null;
+    if (Number.isSafeInteger(days * DAY_MS)) return days;
+  }
+  if (!warnedTtlValues.has(value)) {
+    warnedTtlValues.add(value);
+    console.warn(`WEBHOOK_TTL_DAYS="${value}" is not a valid number of days; using ${TTL_DAYS}.`);
+  }
+  return TTL_DAYS;
+}
+
 export const DEFAULT_WEBHOOK_QUOTA = 5;
 
 /** Effective quota per IP, or `null` when quota is disabled. Explicit `WEBHOOK_QUOTA` values still apply when quota is enabled. */
