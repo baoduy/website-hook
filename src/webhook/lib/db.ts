@@ -182,7 +182,7 @@ export async function listCapturedRequests(
   const decodedCursor = cursor ? decodeCursor(cursor) : null;
   const afterCursor = decodedCursor
     ? Prisma.sql`AND (created_at < ${BigInt(decodedCursor.createdAt)} OR (created_at = ${BigInt(decodedCursor.createdAt)}
-        AND rowid < (SELECT rowid FROM captured_requests WHERE id = ${decodedCursor.id})))`
+        AND rowid < (SELECT rowid FROM captured_requests WHERE id = ${decodedCursor.id} AND webhook_id = ${webhookId})))`
     : Prisma.empty;
 
   // Same-millisecond captures tie on created_at; rowid (assigned in insert order) breaks the tie by arrival.
