@@ -30,7 +30,7 @@ export function RequestDetail({
     return (
       <EmptyCard
         title="No webhook selected"
-        body="Create a webhook to get started. Webhooks purge themselves after seven idle days; creation is limited to 20 per minute per IP."
+        body="Create a webhook to get started. Idle webhooks purge themselves after this deployment's idle period; creation is limited to 20 per minute per IP."
         snippet={`curl -X POST '${baseUrl}/api/webhooks'`}
       />
     );
