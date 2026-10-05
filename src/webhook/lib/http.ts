@@ -24,6 +24,14 @@ export function getClientIp(request: NextRequest): string {
   return `direct:${request.headers.get("x-test-caller") ?? "default"}`;
 }
 
+/**
+ * The address the caller used: `x-forwarded-proto` + `host` header, else the `nextUrl` values (DRK-2086 §3 row 1).
+ */
+export function requestOrigin(request: NextRequest): string {
+  void request;
+  throw new Error("not implemented: requestOrigin (DRK-2086)");
+}
+
 export function serializeWebhook(webhook: WebhookInfo) {
   return {
     id: webhook.id,
