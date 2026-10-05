@@ -32,7 +32,7 @@ await container.StartAsync();
 
 var uri = container.GetServiceUri();
 using var client = new HttpClient();
-var response = await client.GetAsync(uri);
+var response = await client.GetAsync(new Uri(uri, "/openapi.json"));
 
 await container.DisposeAsync();
 ```
